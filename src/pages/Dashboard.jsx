@@ -183,7 +183,6 @@ function Dashboard({
 
             {event.distance && <span>{event.distance} km away</span>}
 
-            {event.source && <span>Source: {event.source}</span>}
           </div>
         </div>
 
@@ -305,12 +304,6 @@ function Dashboard({
           {event.package && (
             <span>
               <strong>Package:</strong> {event.package}
-            </span>
-          )}
-
-          {event.source && (
-            <span>
-              <strong>Source:</strong> {event.source}
             </span>
           )}
         </div>
