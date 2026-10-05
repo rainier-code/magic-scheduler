@@ -292,7 +292,7 @@ function AddEvent({ onAddEvent, onClose }) {
 
     try {
       const response = await axios.post(
-        "http://localhost:5000/api/events",
+        `${import.meta.env.VITE_API_URL}/api/events`,
         eventData
       );
 

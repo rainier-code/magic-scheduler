@@ -15,11 +15,7 @@ import {
 } from "react-icons/fa";
 
 const defaultPerformers = [
-  "Jow",
-  "Mike",
-  "Alex",
-  "Chris",
-  "Kevin",
+  "Mark",
 ];
 
 function Settings() {
@@ -32,7 +28,7 @@ function Settings() {
       const parsedSettings = JSON.parse(savedSettings);
 
       return {
-        name: parsedSettings.name || "Jow",
+        name: parsedSettings.name || "Mark",
         defaultLocation:
           parsedSettings.defaultLocation || "",
         notifications:
@@ -43,7 +39,7 @@ function Settings() {
     }
 
     return {
-      name: "Jow",
+      name: "Mark",
       defaultLocation: "",
       notifications: true,
       performers: defaultPerformers,

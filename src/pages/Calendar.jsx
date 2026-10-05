@@ -83,7 +83,7 @@ function Calendar({
       );
 
       await axios.delete(
-        `http://localhost:5000/api/events/${eventId}`
+        `${import.meta.env.VITE_API_URL}/api/events/${eventId}`
       );
 
       setSelectedEvent(null);

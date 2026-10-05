@@ -538,10 +538,16 @@ From the `server` folder:
 node server.js
 ```
 
-The backend runs on:
+For local development, the backend runs on:
 
 ```text
 http://localhost:5000
+```
+
+The deployed backend API is available at:
+
+```text
+https://magic-scheduler-api.onrender.com
 ```
 
 ---

@@ -105,7 +105,9 @@ function Dashboard({
 
   const handleDelete = async (eventId) => {
     try {
-      await axios.delete(`http://localhost:5000/api/events/${eventId}`);
+      await axios.delete(
+        `${import.meta.env.VITE_API_URL}/api/events/${eventId}`
+      );
 
       const deletedEvent = events.find((event) => event._id === eventId);
 

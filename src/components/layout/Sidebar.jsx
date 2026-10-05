@@ -63,7 +63,7 @@ function Sidebar() {
           </div>
 
           <div className="sidebar-logo-text">
-            <h2>Mark D'Magician</h2>
+            <h2>Magic Scheduler</h2>
             <span>Event Scheduler</span>
           </div>
 

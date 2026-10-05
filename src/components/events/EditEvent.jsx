@@ -253,7 +253,7 @@ function EditEvent({ event, onClose, onUpdateEvent }) {
       };
 
       const response = await axios.put(
-        `http://localhost:5000/api/events/${event._id}`,
+        `${import.meta.env.VITE_API_URL}/api/events/${event._id}`,
         updatedEventData
       );
 
