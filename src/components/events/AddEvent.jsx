@@ -240,13 +240,31 @@ function AddEvent({ onAddEvent, onClose }) {
       if (savedSettings) {
         const settings = JSON.parse(savedSettings);
 
-        if (settings.defaultLocation) {
-          userCoordinates = await getCoordinates(settings.defaultLocation);
+        if (settings.defaultLocation?.trim()) {
+          try {
+            userCoordinates = await getCoordinates(
+              settings.defaultLocation
+            );
+          } catch {
+            setErrorMessage(
+              "The default location in Settings could not be found. Please update it in Settings or connect to your current location."
+            );
+            setIsSaving(false);
+            return;
+          }
         }
       }
 
       if (!userCoordinates) {
-        userCoordinates = await getCurrentLocation();
+        try {
+          userCoordinates = await getCurrentLocation();
+        } catch {
+          setErrorMessage(
+            "Please connect to your location or set a default location in Settings to calculate the distance."
+          );
+          setIsSaving(false);
+          return;
+        }
       }
 
       const distance = calculateDistance(

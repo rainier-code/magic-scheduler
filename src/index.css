@@ -7190,3 +7190,61 @@ summary:focus-visible {
     padding: 0 10px;
   }
 }
+
+/* ==================================================
+   MOBILE SIDEBAR - fit everything without scrolling
+   Paste at the VERY END of index.css so it overrides
+   the earlier .sidebar rules.
+================================================== */
+
+@media (max-width: 500px) {
+  .sidebar {
+    height: 100vh;
+    height: 100dvh; /* real visible height, ignores the browser's address bar */
+    padding: 16px 14px calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* smaller gaps around the logo */
+  .sidebar .logo {
+    margin-bottom: 8px;
+    padding: 4px 8px 16px;
+  }
+
+  /* tighter menu rows */
+  .sidebar .menu li {
+    margin: 2px 0;
+  }
+
+  .sidebar .menu li a {
+    min-height: 44px;
+  }
+
+  .navigation-label {
+    margin: 0 10px 6px;
+  }
+
+  /* SYSTEM / Settings sits right under the menu
+     instead of being pushed to the bottom of the screen */
+  .sidebar-bottom {
+    margin-top: 8px;
+  }
+
+  .sidebar-divider {
+    margin: 12px 10px 14px;
+  }
+}
+
+/* very short phones (landscape or small screens) */
+@media (max-width: 500px) and (max-height: 600px) {
+  .sidebar .logo {
+    padding-bottom: 10px;
+  }
+
+  .sidebar .menu li a {
+    min-height: 40px;
+  }
+
+  .sidebar-divider {
+    margin: 8px 10px 10px;
+  }
+}

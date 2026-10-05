@@ -25,7 +25,7 @@ function Sidebar() {
       <header className="mobile-navbar">
         <div className="mobile-logo">
           <FaMagic className="logo-icon" />
-          <h2>Mark D'Magician</h2>
+          <h2>Magic Scheduler</h2>
         </div>
 
         <button
