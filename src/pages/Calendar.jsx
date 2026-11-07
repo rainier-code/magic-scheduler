@@ -196,6 +196,8 @@ function Calendar({
                       <div className="calendar-events">
                         {dayEvents.map((event) => (
                         <button
+                          type="button"
+                          aria-label={`${event.client}, ${event.type}, ${formatEventTime(event.time)}`}
                           className={`calendar-event ${
                             event.date < today
                               ? "calendar-event-past"

@@ -7,6 +7,7 @@ import Calendar from "./pages/Calendar";
 import Clients from "./pages/Clients";
 import History from "./pages/History";
 import Settings from "./pages/Settings";
+import { NotificationProvider } from "./context/NotificationContext.jsx";
 
 function App() {
   const [events, setEvents] = useState([]);
@@ -58,58 +59,47 @@ function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <Dashboard
-              events={events}
-              isLoadingEvents={isLoadingEvents}
-              onAddEvent={addEvent}
-              onUpdateEvent={updateEvent}
-              onDeleteEvent={deleteEvent}
-            />
-          }
-        />
+      <NotificationProvider events={events}>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <Dashboard
+                events={events}
+                isLoadingEvents={isLoadingEvents}
+                onAddEvent={addEvent}
+                onUpdateEvent={updateEvent}
+                onDeleteEvent={deleteEvent}
+              />
+            }
+          />
 
-        <Route
-          path="/calendar"
-          element={
-            <Calendar
-              events={events}
-              onUpdateEvent={updateEvent}
-              onDeleteEvent={deleteEvent}
-            />
-          }
-        />
+          <Route
+            path="/calendar"
+            element={
+              <Calendar
+                events={events}
+                onUpdateEvent={updateEvent}
+                onDeleteEvent={deleteEvent}
+              />
+            }
+          />
 
-        <Route
-          path="/clients"
-          element={
-            <Clients
-              events={events}
-              onUpdateEvent={updateEvent}
-              onDeleteEvent={deleteEvent}
-            />
-          }
-        />
+          <Route
+            path="/clients"
+            element={
+              <Clients
+                events={events}
+                onUpdateEvent={updateEvent}
+                onDeleteEvent={deleteEvent}
+              />
+            }
+          />
 
-        <Route
-          path="/history"
-          element={
-            <History
-              events={events}
-            />
-          }
-        />
-
-        <Route
-          path="/settings"
-          element={
-            <Settings />
-          }
-        />
-      </Routes>
+          <Route path="/history" element={<History events={events} />} />
+          <Route path="/settings" element={<Settings />} />
+        </Routes>
+      </NotificationProvider>
     </BrowserRouter>
   );
 }

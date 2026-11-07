@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import {
   FaMagic,
@@ -11,9 +12,18 @@ import {
 } from "react-icons/fa";
 
 import { NavLink } from "react-router-dom";
+import NotificationBell from "../common/NotificationBell";
+import { useNotifications } from "../../context/useNotifications.js";
 
 function Sidebar() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const {
+    notifications,
+    unreadCount,
+    readNotificationIds,
+    markAsRead,
+    markAllAsRead,
+  } = useNotifications();
 
   const closeMenu = () => {
     setMenuOpen(false);
@@ -28,18 +38,24 @@ function Sidebar() {
           <h2>Magic Scheduler</h2>
         </div>
 
-        <button
-          type="button"
-          className="mobile-menu-button"
-          onClick={() => setMenuOpen(!menuOpen)}
-          aria-label={
-            menuOpen
-              ? "Close navigation"
-              : "Open navigation"
-          }
-        >
-          {menuOpen ? <FaTimes /> : <FaBars />}
-        </button>
+        <div className="mobile-navbar-actions">
+          <NotificationBell
+            notifications={notifications}
+            unreadCount={unreadCount}
+            readNotificationIds={readNotificationIds}
+            markAsRead={markAsRead}
+            markAllAsRead={markAllAsRead}
+          />
+
+          <button
+            type="button"
+            className="mobile-menu-button"
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label={menuOpen ? "Close navigation" : "Open navigation"}
+          >
+            {menuOpen ? <FaTimes /> : <FaBars />}
+          </button>
+        </div>
       </header>
 
       {/* MOBILE OVERLAY */}
@@ -77,49 +93,39 @@ function Sidebar() {
           </button>
         </div>
 
+        {/* DESKTOP NOTIFICATIONS */}
+        <div className="sidebar-notification">
+          <NotificationBell notifications={notifications} />
+        </div>
+
         {/* MAIN NAVIGATION */}
-        <nav className="sidebar-navigation">
-          <p className="navigation-label">
-            MAIN MENU
-          </p>
+        <nav className="sidebar-navigation" aria-label="Main navigation">
+          <p className="navigation-label">MAIN MENU</p>
 
           <ul className="menu">
             <li>
-              <NavLink
-                to="/"
-                end
-                onClick={closeMenu}
-              >
+              <NavLink to="/" end onClick={closeMenu}>
                 <FaHome />
                 <span>Dashboard</span>
               </NavLink>
             </li>
 
             <li>
-              <NavLink
-                to="/calendar"
-                onClick={closeMenu}
-              >
+              <NavLink to="/calendar" onClick={closeMenu}>
                 <FaCalendarAlt />
                 <span>Calendar</span>
               </NavLink>
             </li>
 
             <li>
-              <NavLink
-                to="/clients"
-                onClick={closeMenu}
-              >
+              <NavLink to="/clients" onClick={closeMenu}>
                 <FaUsers />
                 <span>Clients</span>
               </NavLink>
             </li>
 
             <li>
-              <NavLink
-                to="/history"
-                onClick={closeMenu}
-              >
+              <NavLink to="/history" onClick={closeMenu}>
                 <FaHistory />
                 <span>History</span>
               </NavLink>
@@ -131,16 +137,11 @@ function Sidebar() {
         <div className="sidebar-bottom">
           <div className="sidebar-divider"></div>
 
-          <p className="navigation-label">
-            SYSTEM
-          </p>
+          <p className="navigation-label">SYSTEM</p>
 
-          <ul className="menu">
+          <ul className="menu" aria-label="System navigation">
             <li>
-              <NavLink
-                to="/settings"
-                onClick={closeMenu}
-              >
+              <NavLink to="/settings" onClick={closeMenu}>
                 <FaCog />
                 <span>Settings</span>
               </NavLink>
