@@ -1,5 +1,6 @@
 require("dotenv").config();
 
+const pushSubscriptionRoutes = require("./routes/pushSubscriptionRoutes");
 const express = require("express");
 const cors = require("cors");
 const connectDB = require("./config/db");
@@ -15,6 +16,8 @@ app.use(express.json());
 
 // API routes
 app.use("/api/events", eventRoutes);
+
+app.use("/api/push", pushSubscriptionRoutes);
 
 app.get("/", (req, res) => {
   res.json({

@@ -2940,12 +2940,39 @@ textarea {
   cursor: pointer;
 }
 
+/* Hide the actual checkbox */
 .settings-toggle input {
   position: absolute;
   opacity: 0;
-  pointer-events: none;
+  width: 1px;
+  height: 1px;
 }
 
+/* Toggle slider */
+.toggle-slider {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 24px;
+  background: var(--border-color);
+  border-radius: 999px;
+  transition: background 0.25s ease;
+}
+
+/* Toggle circle */
+.toggle-slider::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.25s ease;
+}
+
+/* ON state */
 .settings-toggle input:checked + .toggle-slider {
   background: var(--primary);
 }
@@ -2954,49 +2981,16 @@ textarea {
   transform: translateX(20px);
 }
 
+/* Keyboard accessibility */
 .settings-toggle input:focus-visible + .toggle-slider {
-  box-shadow: var(--ring-primary);
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
 }
 
-.settings-toggle > span:last-child {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  font-size: var(--fs-base);
-  color: var(--text-primary);
-}
-
-.settings-toggle strong {
-  font-size: var(--fs-base);
-  font-weight: 600;
-}
-
-.settings-toggle small {
-  font-size: var(--fs-xs);
-  color: var(--text-secondary);
-}
-
-.toggle-slider {
-  position: relative;
-  flex-shrink: 0;
-  width: 44px;
-  height: 24px;
-  background: var(--border-strong);
-  border-radius: 999px;
-  transition: background var(--transition);
-}
-
-.toggle-slider::after {
-  content: "";
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 18px;
-  height: 18px;
-  background: var(--white);
-  border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-  transition: transform var(--transition);
+/* Disabled state */
+.settings-toggle:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .settings-save-wrapper {
@@ -8588,5 +8582,125 @@ summary:focus-visible {
 @media (max-width: 800px) {
   .notification-desktop-label {
     display: none;
+  }
+}
+
+.settings-push {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-color);
+}
+
+.settings-push p {
+  margin: 6px 0;
+}
+
+.settings-push small {
+  display: block;
+  margin-top: 8px;
+}
+/* Settings notification preference card. */
+.settings-notification-card .settings-title {
+  align-items: center;
+}
+
+.settings-notification-card .settings-title > span:last-child {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.settings-notification-state {
+  min-width: 54px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.settings-notification-state.enabled {
+  color: var(--success-dark);
+  background: var(--success-light);
+  border: 1px solid var(--success-border);
+}
+
+.settings-notification-state.disabled {
+  color: var(--text-secondary);
+  background: var(--gray-100);
+  border: 1px solid var(--border);
+}
+
+.settings-notification-toggle {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 78px;
+  margin-top: 18px;
+  padding: 16px;
+  background: var(--gray-50);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: background var(--transition), border-color var(--transition),
+    box-shadow var(--transition);
+}
+
+.settings-notification-toggle:hover {
+  border-color: var(--primary-200);
+  box-shadow: 0 3px 12px rgba(37, 99, 235, 0.08);
+}
+
+.settings-notification-toggle:has(input:checked) {
+  background: var(--primary-light);
+  border-color: var(--primary-100);
+}
+
+.settings-notification-toggle:has(input:disabled) {
+  cursor: progress;
+}
+
+.settings-notification-toggle .toggle-slider {
+  width: 48px;
+  height: 28px;
+  background: var(--gray-300);
+}
+
+.settings-notification-toggle .toggle-slider::after {
+  width: 20px;
+  height: 20px;
+}
+
+.settings-notification-toggle input:checked + .toggle-slider::after {
+  transform: translateX(20px);
+}
+
+.settings-notification-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.settings-notification-copy strong {
+  color: var(--text-primary);
+  font-size: var(--fs-base);
+}
+
+.settings-notification-copy small {
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+}
+
+@media (max-width: 500px) {
+  .settings-notification-toggle {
+    align-items: flex-start;
+    padding: 14px 12px;
+  }
+
+  .settings-notification-copy small {
+    font-size: var(--fs-xs);
   }
 }

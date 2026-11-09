@@ -9,6 +9,10 @@ import {
 } from "../utils/geocoding"; // adjust to wherever your location helpers live
 
 import {
+  subscribeToPushNotifications,
+  unsubscribeFromPushNotifications
+} from "../utils/pushNotifications";
+import {
   FaCog,
   FaUser,
   FaMapMarkerAlt,
@@ -28,6 +32,16 @@ import {
 const defaultPerformers = ["Mark"];
 
 function Settings() {
+  const [pushPermission, setPushPermission] = useState(() => {
+      if (!("Notification" in window)) {
+        return "unsupported";
+      }
+
+      return Notification.permission;
+    });
+
+    const [isSubscribing, setIsSubscribing] = useState(false);
+    
   const [settings, setSettings] = useState(() => {
     const savedSettings = localStorage.getItem("magicSchedulerSettings");
 
@@ -63,14 +77,56 @@ function Settings() {
   const [editPerformerValue, setEditPerformerValue] = useState("");
   const [modal, setModal] = useState(null);
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
 
-    setSettings({
-      ...settings,
+  const handleChange = async (e) => {
+    console.log("Settings handleChange was triggered");
+
+    const { name, value, checked, type } = e.target;
+
+    // Handle notification toggle
+    if (name === "notifications") {
+      setIsSubscribing(true);
+
+      try {
+        if (checked) {
+          await subscribeToPushNotifications();
+
+          setPushPermission(Notification.permission);
+
+          setSettings((current) => ({
+            ...current,
+            notifications: true,
+          }));
+        } else {
+          await unsubscribeFromPushNotifications();
+
+          setSettings((current) => ({
+            ...current,
+            notifications: false,
+          }));
+        }
+      } catch (error) {
+        console.error("Notification update failed:", error);
+
+        setModal({
+          type: "error",
+          title: "Notification Settings",
+          message: error.message || "Unable to update notification settings.",
+        });
+      } finally {
+        setIsSubscribing(false);
+      }
+
+      return;
+    }
+
+    // Handle other form inputs
+    setSettings((current) => ({
+      ...current,
       [name]: type === "checkbox" ? checked : value,
-    });
+    }));
   };
+
 
   /* ---------------- LOCATION ---------------- */
 
@@ -545,37 +601,66 @@ function Settings() {
             </div>
           </div>
 
-          {/* NOTIFICATIONS */}
-          <div className="settings-card">
-            <div className="settings-title">
-              <div className="settings-title-icon">
-                <FaBell />
+         
+            {/* NOTIFICATIONS */}
+            <div className="settings-card settings-notification-card">
+              <div className="settings-title">
+                <div className="settings-title-icon">
+                  <FaBell />
+                </div>
+
+                <div>
+                  <h2>Notifications</h2>
+                  <p>Turn your scheduler notifications on or off.</p>
+                </div>
+
+                <span
+                  className={`settings-notification-state ${
+                    settings.notifications ? "enabled" : "disabled"
+                  }`}
+                >
+                  {settings.notifications ? "On" : "Off"}
+                </span>
               </div>
 
-              <div>
-                <h2>Notifications</h2>
-                <p>Notification preferences for future scheduler alerts.</p>
-              </div>
+              <label className="settings-toggle settings-notification-toggle">
+                <input
+                  type="checkbox"
+                  name="notifications"
+                  aria-label="Enable notifications"
+                  checked={settings.notifications}
+                  onChange={handleChange}
+                  disabled={isSubscribing}
+                />
+
+                <span className="toggle-slider"></span>
+
+                <span className="settings-notification-copy">
+                  <strong>
+                    {isSubscribing ? "Updating notifications..." : "Enable notifications"}
+                  </strong>
+                  <small>
+                    {settings.notifications
+                      ? "Notifications are enabled on this device."
+                      : "Notifications are currently turned off."}
+                  </small>
+                </span>
+              </label>
+
+              {pushPermission === "denied" && (
+                <p className="settings-location-hint">
+                  Notifications are blocked by your browser. Allow them in
+                  your browser or device settings before turning them on.
+                </p>
+              )}
+
+              {pushPermission === "unsupported" && (
+                <p className="settings-location-hint">
+                  This browser does not support push notifications.
+                </p>
+              )}
             </div>
 
-            <label className="settings-toggle">
-              <input
-                type="checkbox"
-                name="notifications"
-                checked={settings.notifications}
-                onChange={handleChange}
-              />
-
-              <span className="toggle-slider"></span>
-
-              <span>
-                <strong>Enable notifications</strong>
-                <small>
-                  Receive scheduler alerts when this feature becomes available.
-                </small>
-              </span>
-            </label>
-          </div>
 
           {/* SAVE */}
           <div className="settings-save-wrapper">
