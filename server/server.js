@@ -16,7 +16,6 @@ app.use(express.json());
 
 // API routes
 app.use("/api/events", eventRoutes);
-
 app.use("/api/push", pushSubscriptionRoutes);
 
 app.get("/", (req, res) => {

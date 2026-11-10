@@ -62,6 +62,11 @@ const eventSchema = new mongoose.Schema(
       enum: ["Unpaid", "Downpayment Paid", "Fully Paid"],
       default: "Unpaid",
     },
+    
+    reminderSent: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,
