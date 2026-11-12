@@ -25,10 +25,11 @@ const runScheduledReminders = async (req, res) => {
       });
     }
 
-    await checkEventReminders();
+    const result = await checkEventReminders();
 
     return res.status(200).json({
       message: "Scheduled event reminder check completed.",
+      results: result,
     });
   } catch (error) {
     console.error("Scheduled reminder failed:", error);

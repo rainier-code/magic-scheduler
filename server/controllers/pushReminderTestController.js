@@ -8,7 +8,9 @@ const testEventReminder = async (req, res) => {
     const providedSecret = req.headers["x-test-secret"];
 
     if (!expectedSecret || !providedSecret) {
-      return res.status(401).json({ message: "Unauthorized." });
+      return res.status(401).json({
+        message: "Unauthorized.",
+      });
     }
 
     const expected = Buffer.from(expectedSecret);
@@ -18,13 +20,16 @@ const testEventReminder = async (req, res) => {
       expected.length !== provided.length ||
       !crypto.timingSafeEqual(expected, provided)
     ) {
-      return res.status(401).json({ message: "Unauthorized." });
+      return res.status(401).json({
+        message: "Unauthorized.",
+      });
     }
 
-    await checkEventReminders();
+    const result = await checkEventReminders();
 
     return res.status(200).json({
       message: "Event reminder check completed.",
+      results: result,
     });
   } catch (error) {
     console.error("Reminder test failed:", error);

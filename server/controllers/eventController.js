@@ -28,22 +28,31 @@ const createEvent = async (req, res) => {
   }
 };
 
+
 const updateEvent = async (req, res) => {
   try {
-    const updatedEvent = await Event.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      {
-        new: true,
-        runValidators: true,
-      }
-    );
+    const event = await Event.findById(req.params.id);
 
-    if (!updatedEvent) {
+    if (!event) {
       return res.status(404).json({
         message: "Event not found",
       });
     }
+
+    // Check if the event date has changed.
+    const dateChanged =
+      req.body.date !== undefined &&
+      req.body.date !== event.date;
+
+    // Update the event fields.
+    Object.assign(event, req.body);
+
+    // Reset reminder status if the date changed.
+    if (dateChanged) {
+      event.reminderSent = false;
+    }
+
+    const updatedEvent = await event.save();
 
     res.json(updatedEvent);
   } catch (error) {
