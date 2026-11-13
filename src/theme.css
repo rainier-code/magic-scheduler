@@ -450,7 +450,8 @@ a:focus-visible,
 
 @media (max-width: 600px) {
   .content {
-    padding: 18px 15px 112px;
+    /* Keep page content below the fixed mobile brand bar. */
+    padding: calc(76px + env(safe-area-inset-top, 0px)) 15px 112px;
   }
 
   .page-header {
