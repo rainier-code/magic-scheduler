@@ -9,7 +9,10 @@ export function NotificationProvider({ events = [], children }) {
   const [readNotificationIds, setReadNotificationIds] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : [];
+      const parsed = saved ? JSON.parse(saved) : [];
+      return Array.isArray(parsed)
+        ? parsed.filter((notificationId) => typeof notificationId === "string")
+        : [];
     } catch (error) {
       console.error("Failed to load read notifications:", error);
       return [];
@@ -30,7 +33,11 @@ export function NotificationProvider({ events = [], children }) {
       if (currentIds.includes(notificationId)) return currentIds;
 
       const updatedIds = [...currentIds, notificationId];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedIds));
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedIds));
+      } catch (error) {
+        console.error("Failed to save notification read state:", error?.name || "StorageError");
+      }
 
       return updatedIds;
     });
@@ -44,7 +51,11 @@ export function NotificationProvider({ events = [], children }) {
     setReadNotificationIds((previousIds) => {
       const updatedIds = [...new Set([...previousIds, ...currentIds])];
 
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedIds));
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedIds));
+      } catch (error) {
+        console.error("Failed to save notification read state:", error?.name || "StorageError");
+      }
 
       return updatedIds;
     });

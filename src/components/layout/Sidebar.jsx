@@ -1,7 +1,6 @@
 
 import { useState } from "react";
 import {
-  FaMagic,
   FaHome,
   FaCalendarAlt,
   FaUsers,
@@ -34,7 +33,7 @@ function Sidebar() {
       {/* MOBILE TOP BAR */}
       <header className="mobile-navbar">
         <div className="mobile-logo">
-          <FaMagic className="logo-icon" />
+          <img src="/icon-192.png" alt="" className="app-brand-icon" />
           <h2>Magic Scheduler</h2>
         </div>
 
@@ -75,7 +74,7 @@ function Sidebar() {
         {/* LOGO */}
         <div className="logo">
           <div className="sidebar-logo-mark">
-            <FaMagic className="logo-icon" />
+            <img src="/icon-192.png" alt="" className="app-brand-icon" />
           </div>
 
           <div className="sidebar-logo-text">
@@ -95,7 +94,13 @@ function Sidebar() {
 
         {/* DESKTOP NOTIFICATIONS */}
         <div className="sidebar-notification">
-          <NotificationBell notifications={notifications} />
+          <NotificationBell
+            notifications={notifications}
+            unreadCount={unreadCount}
+            readNotificationIds={readNotificationIds}
+            markAsRead={markAsRead}
+            markAllAsRead={markAllAsRead}
+          />
         </div>
 
         {/* MAIN NAVIGATION */}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
@@ -8,29 +8,30 @@ import Clients from "./pages/Clients";
 import History from "./pages/History";
 import Settings from "./pages/Settings";
 import { NotificationProvider } from "./context/NotificationContext.jsx";
+import { getApiErrorMessage } from "./utils/apiErrors";
 
 function App() {
   const [events, setEvents] = useState([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
+  const [eventsLoadError, setEventsLoadError] = useState("");
+
+  const fetchEvents = useCallback(async () => {
+    setIsLoadingEvents(true);
+    setEventsLoadError("");
+    try {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/events`, { timeout: 15000 });
+      setEvents(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error("Failed to load events:", error?.code || error?.name || "RequestError");
+      setEventsLoadError(getApiErrorMessage(error, "Could not load your event records."));
+    } finally {
+      setIsLoadingEvents(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/events`);
-
-        setEvents(response.data);
-      } catch (error) {
-        console.error(
-          "Failed to load events:",
-          error
-        );
-      } finally {
-        setIsLoadingEvents(false);
-      }
-    };
-
     fetchEvents();
-  }, []);
+  }, [fetchEvents]);
 
   const addEvent = (newEvent) => {
     setEvents((currentEvents) => [
@@ -67,6 +68,8 @@ function App() {
               <Dashboard
                 events={events}
                 isLoadingEvents={isLoadingEvents}
+                eventsLoadError={eventsLoadError}
+                onRetryLoad={fetchEvents}
                 onAddEvent={addEvent}
                 onUpdateEvent={updateEvent}
                 onDeleteEvent={deleteEvent}
@@ -79,6 +82,8 @@ function App() {
             element={
               <Calendar
                 events={events}
+                eventsLoadError={eventsLoadError}
+                onRetryLoad={fetchEvents}
                 onUpdateEvent={updateEvent}
                 onDeleteEvent={deleteEvent}
               />
@@ -90,14 +95,21 @@ function App() {
             element={
               <Clients
                 events={events}
+                eventsLoadError={eventsLoadError}
+                onRetryLoad={fetchEvents}
                 onUpdateEvent={updateEvent}
                 onDeleteEvent={deleteEvent}
               />
             }
           />
 
-          <Route path="/history" element={<History events={events} />} />
-          <Route path="/settings" element={<Settings />} />
+          <Route path="/history" element={<History events={events} eventsLoadError={eventsLoadError} onRetryLoad={fetchEvents} />} />
+          <Route
+            path="/settings"
+            element={
+              <Settings eventsLoadError={eventsLoadError} onRetryLoad={fetchEvents} />
+            }
+          />
         </Routes>
       </NotificationProvider>
     </BrowserRouter>

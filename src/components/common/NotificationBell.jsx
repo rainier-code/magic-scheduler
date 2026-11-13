@@ -29,20 +29,23 @@ function NotificationBell({
     const bellBounds = bellRef.current?.getBoundingClientRect();
 
     if (bellBounds) {
-      const panelWidth = Math.min(360, window.innerWidth - 24);
-      const preferredLeft = window.innerWidth <= 500
+      const viewportWidth = window.visualViewport?.width || window.innerWidth;
+      const viewportHeight = window.visualViewport?.height || window.innerHeight;
+      const panelWidth = Math.min(360, viewportWidth - 24);
+      const panelMaxHeight = Math.max(0, Math.min(560, viewportHeight - 24));
+      const preferredLeft = viewportWidth <= 500
         ? bellBounds.right - panelWidth
         : bellBounds.right + 10;
       const left = Math.max(
         12,
-        Math.min(preferredLeft, window.innerWidth - panelWidth - 12)
+        Math.min(preferredLeft, viewportWidth - panelWidth - 12)
       );
       const top = Math.max(
         12,
-        Math.min(bellBounds.bottom + 8, window.innerHeight - 500)
+        Math.min(bellBounds.bottom + 8, viewportHeight - panelMaxHeight - 12)
       );
 
-      setDropdownPosition({ left, top });
+      setDropdownPosition({ left, top, maxHeight: panelMaxHeight });
     }
 
     setIsOpen(true);

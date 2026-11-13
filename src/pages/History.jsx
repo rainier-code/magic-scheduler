@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import dayjs from "dayjs";
 import Layout from "../components/layout/Layout";
 import PageHeader from "../components/common/PageHeader";
+import DataLoadError from "../components/common/DataLoadError";
 
 import {
   FaHistory,
@@ -21,11 +22,45 @@ import {
   FaMoneyBillWave,
 } from "react-icons/fa";
 
-function History({ events }) {
+const HISTORY_PAGE_SIZE = 8;
+
+const getPaymentStatus = (event) => event.paymentStatus || "Unpaid";
+
+const getPaymentClass = (status) =>
+  status.toLowerCase().replace(/\s+/g, "-");
+
+const getBalance = (event) =>
+  Number(
+    event.balance ??
+      Math.max(
+        (Number(event.totalAmount) || 0) - (Number(event.downpayment) || 0),
+        0
+      )
+  ) || 0;
+
+const formatPeso = (amount) =>
+  `₱${Number(amount || 0).toLocaleString("en-PH", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+const getHistoryPages = (totalPages, currentPage) => {
+  const visibleCount = Math.min(totalPages, 5);
+  const firstPage = Math.max(
+    1,
+    Math.min(currentPage - 2, totalPages - visibleCount + 1)
+  );
+
+  return Array.from({ length: visibleCount }, (_, index) => firstPage + index);
+};
+
+function History({ events, eventsLoadError, onRetryLoad }) {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOrder, setSortOrder] = useState("newest");
   const [dateFilter, setDateFilter] = useState("all");
+  const [paymentFilter, setPaymentFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const today = dayjs().format("YYYY-MM-DD");
   const currentYear = dayjs().format("YYYY");
@@ -54,11 +89,15 @@ function History({ events }) {
       }
 
       if (dateFilter === "this-year") {
-        return event.date.startsWith(currentYear);
+        if (!event.date.startsWith(currentYear)) return false;
       }
 
       if (dateFilter === "previous-years") {
-        return event.date.substring(0, 4) < currentYear;
+        if (event.date.substring(0, 4) >= currentYear) return false;
+      }
+
+      if (paymentFilter !== "all" && getPaymentClass(getPaymentStatus(event)) !== paymentFilter) {
+        return false;
       }
 
       return true;
@@ -82,13 +121,22 @@ function History({ events }) {
     searchTerm,
     sortOrder,
     dateFilter,
+    paymentFilter,
     currentYear,
   ]);
 
+  const pageCount = Math.ceil(filteredEvents.length / HISTORY_PAGE_SIZE);
+  const safeCurrentPage = Math.min(currentPage, Math.max(pageCount, 1));
+  const visibleEvents = filteredEvents.slice(
+    (safeCurrentPage - 1) * HISTORY_PAGE_SIZE,
+    safeCurrentPage * HISTORY_PAGE_SIZE
+  );
   const clearFilters = () => {
     setSearchTerm("");
     setDateFilter("all");
+    setPaymentFilter("all");
     setSortOrder("newest");
+    setCurrentPage(1);
   };
 
   return (
@@ -98,6 +146,8 @@ function History({ events }) {
         title="Event History"
         description="View your completed events and past event records."
       />
+
+      <DataLoadError message={eventsLoadError} onRetry={onRetryLoad} />
 
       <section className="history-section">
 
@@ -122,6 +172,7 @@ function History({ events }) {
             <span>Total Records</span>
             <strong>{pastEvents.length}</strong>
           </div>
+
         </div>
 
         {/* SEARCH AND FILTERS */}
@@ -134,9 +185,10 @@ function History({ events }) {
               type="text"
               placeholder="Search client, event, location..."
               value={searchTerm}
-              onChange={(e) =>
-                setSearchTerm(e.target.value)
-              }
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
               aria-label="Search event history"
             />
 
@@ -144,7 +196,10 @@ function History({ events }) {
               <button
                 type="button"
                 className="history-search-clear"
-                onClick={() => setSearchTerm("")}
+                onClick={() => {
+                  setSearchTerm("");
+                  setCurrentPage(1);
+                }}
                 aria-label="Clear history search"
               >
                 <FaTimes />
@@ -164,9 +219,10 @@ function History({ events }) {
               <select
                 id="history-date-filter"
                 value={dateFilter}
-                onChange={(e) =>
-                  setDateFilter(e.target.value)
-                }
+                onChange={(e) => {
+                  setDateFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
               >
                 <option value="all">
                   All Dates
@@ -183,6 +239,26 @@ function History({ events }) {
             </div>
 
             <div className="history-filter">
+              <FaMoneyBillWave />
+
+              <label htmlFor="history-payment-filter">Payment</label>
+
+              <select
+                id="history-payment-filter"
+                value={paymentFilter}
+                onChange={(e) => {
+                  setPaymentFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="all">All Statuses</option>
+                <option value="fully-paid">Paid in Full</option>
+                <option value="downpayment-paid">Downpayment Paid</option>
+                <option value="unpaid">Unpaid</option>
+              </select>
+            </div>
+
+            <div className="history-filter">
               <FaSortAmountDown />
 
               <label htmlFor="history-sort">
@@ -192,9 +268,10 @@ function History({ events }) {
               <select
                 id="history-sort"
                 value={sortOrder}
-                onChange={(e) =>
-                  setSortOrder(e.target.value)
-                }
+                onChange={(e) => {
+                  setSortOrder(e.target.value);
+                  setCurrentPage(1);
+                }}
               >
                 <option value="newest">
                   Newest First
@@ -208,6 +285,7 @@ function History({ events }) {
 
             {(searchTerm ||
               dateFilter !== "all" ||
+              paymentFilter !== "all" ||
               sortOrder !== "newest") && (
               <button
                 type="button"
@@ -261,7 +339,7 @@ function History({ events }) {
         ) : (
           /* HISTORY CARDS */
           <div className="history-grid">
-            {filteredEvents.map((event) => (
+            {visibleEvents.map((event) => (
               <button
                 type="button"
                 className="history-card"
@@ -338,6 +416,13 @@ function History({ events }) {
 
                 </div>
 
+                <div className="history-card-payment">
+                  <span className={`history-payment-status ${getPaymentClass(getPaymentStatus(event))}`}>
+                    {getPaymentStatus(event)}
+                  </span>
+                  <span>Balance {formatPeso(getBalance(event))}</span>
+                </div>
+
                 <div className="history-card-footer">
 
                   <span className="history-performers">
@@ -357,6 +442,46 @@ function History({ events }) {
               </button>
             ))}
           </div>
+        )}
+
+        {filteredEvents.length > 0 && pageCount > 1 && (
+          <nav className="history-pagination" aria-label="History record pages">
+            <span className="history-pagination-summary">
+              Showing {(safeCurrentPage - 1) * HISTORY_PAGE_SIZE + 1}–
+              {Math.min(safeCurrentPage * HISTORY_PAGE_SIZE, filteredEvents.length)}
+              {" of "}{filteredEvents.length}
+            </span>
+            <div className="history-pagination-controls">
+              <button
+                type="button"
+                aria-label="Previous page"
+                disabled={safeCurrentPage === 1}
+                onClick={() => setCurrentPage(safeCurrentPage - 1)}
+              >
+                Previous
+              </button>
+              {getHistoryPages(pageCount, safeCurrentPage).map((page) => (
+                <button
+                  type="button"
+                  className="pagination-page-button"
+                  key={page}
+                  aria-label={`Page ${page}`}
+                  aria-current={page === safeCurrentPage ? "page" : undefined}
+                  onClick={() => setCurrentPage(page)}
+                >
+                  {page}
+                </button>
+              ))}
+              <button
+                type="button"
+                aria-label="Next page"
+                disabled={safeCurrentPage === pageCount}
+                onClick={() => setCurrentPage(safeCurrentPage + 1)}
+              >
+                Next
+              </button>
+            </div>
+          </nav>
         )}
       </section>
 
@@ -550,13 +675,10 @@ function History({ events }) {
                     <span>Balance</span>
                     <strong>
                       ₱
-                      {Number(selectedEvent.balance || 0).toLocaleString(
-                        "en-PH",
-                        {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        }
-                      )}
+                      {getBalance(selectedEvent).toLocaleString("en-PH", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </strong>
                   </div>
 

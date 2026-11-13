@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import dayjs from "dayjs";
 import axios from "axios";
 
 import {
@@ -21,6 +22,7 @@ import { getCoordinates } from "../../utils/geocoding";
 import { getCurrentLocation } from "../../utils/location";
 import { calculateDistance } from "../../utils/distance";
 import ConfirmModal from "../common/ConfirmModal";
+import { getApiErrorMessage } from "../../utils/apiErrors";
 
 const defaultPerformers = ["Mark"];
 
@@ -78,12 +80,13 @@ function AddEvent({ onAddEvent, onClose }) {
 
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   // The modal can close itself, so it works even if the parent
   // does not control it with an onClose handler.
   const [isOpen, setIsOpen] = useState(true);
 
-  const todayString = new Date().toISOString().split("T")[0];
+  const todayString = dayjs().format("YYYY-MM-DD");
 
   /*
     PAYMENT CALCULATION
@@ -130,6 +133,16 @@ function AddEvent({ onAddEvent, onClose }) {
   const handleClose = () => {
     if (isSaving) return;
 
+    const hasUnsavedChanges =
+      Boolean(form.client || form.type || form.package || form.location || form.date || form.time || form.totalAmount || form.downpayment) ||
+      form.performers.length > 0 ||
+      Boolean(otherType || otherPackage || otherPerformer);
+
+    if (hasUnsavedChanges) {
+      setShowDiscardConfirm(true);
+      return;
+    }
+
     setIsOpen(false);
 
     if (onClose) {
@@ -141,18 +154,14 @@ function AddEvent({ onAddEvent, onClose }) {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape" && !isSaving && !errorMessage) {
-        setIsOpen(false);
-
-        if (onClose) {
-          onClose();
-        }
+        handleClose();
       }
     };
 
     document.addEventListener("keydown", handleKeyDown);
 
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isSaving, errorMessage, onClose]);
+  }, [isSaving, errorMessage, onClose, form, otherType, otherPackage, otherPerformer, handleClose]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -276,7 +285,7 @@ function AddEvent({ onAddEvent, onClose }) {
 
       calculatedDistance = distance.toFixed(1);
     } catch (error) {
-      setErrorMessage(error.message);
+      setErrorMessage(getApiErrorMessage(error, "Could not calculate the event distance."));
       setIsSaving(false);
       return;
     }
@@ -320,7 +329,7 @@ function AddEvent({ onAddEvent, onClose }) {
     } catch (error) {
       console.error("Failed to save event:", error);
 
-      setErrorMessage("Failed to save event to the database.");
+      setErrorMessage(getApiErrorMessage(error, "Failed to save the event."));
       setIsSaving(false);
       return;
     }
@@ -753,6 +762,21 @@ function AddEvent({ onAddEvent, onClose }) {
           cancelText=""
           onConfirm={() => setErrorMessage("")}
           onCancel={() => setErrorMessage("")}
+        />
+      )}
+
+      {showDiscardConfirm && (
+        <ConfirmModal
+          title="Discard this booking?"
+          message="Your unsaved booking details will be lost."
+          confirmText="Discard Booking"
+          cancelText="Keep Editing"
+          onConfirm={() => {
+            setShowDiscardConfirm(false);
+            setIsOpen(false);
+            onClose?.();
+          }}
+          onCancel={() => setShowDiscardConfirm(false)}
         />
       )}
     </>

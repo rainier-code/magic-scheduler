@@ -1,4 +1,5 @@
 import { useState } from "react";
+import dayjs from "dayjs";
 import axios from "axios";
 
 import {
@@ -22,6 +23,7 @@ import { getCoordinates } from "../../utils/geocoding";
 import { getCurrentLocation } from "../../utils/location";
 import { calculateDistance } from "../../utils/distance";
 import ConfirmModal from "../common/ConfirmModal";
+import { getApiErrorMessage } from "../../utils/apiErrors";
 
 const defaultPerformers = ["Mark"];
 
@@ -35,7 +37,7 @@ const standardEventTypes = [
 
 const standardPackages = ["Package A", "Package B", "Package C"];
 
-function EditEvent({ event, onClose, onUpdateEvent }) {
+function EditEvent({ event, onClose, onUpdateEvent, onSuccess }) {
   const [performerOptions] = useState(() => {
     try {
       const savedSettings = localStorage.getItem("magicSchedulerSettings");
@@ -87,8 +89,34 @@ function EditEvent({ event, onClose, onUpdateEvent }) {
   );
 
   const [isSaving, setIsSaving] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+
+  const handleClose = () => {
+    if (isSaving) return;
+
+    const hasUnsavedChanges =
+      ["client", "type", "package", "location", "date", "time", "totalAmount", "downpayment"].some(
+        (field) => {
+          const defaultValue = ["totalAmount", "downpayment"].includes(field)
+            ? 0
+            : "";
+          return String(form[field] ?? defaultValue) !==
+            String(event[field] ?? defaultValue);
+        }
+      ) ||
+      JSON.stringify(form.performers || []) !== JSON.stringify(event.performers || []) ||
+      editOtherType !== (event.type && !standardEventTypes.includes(event.type) ? event.type : "") ||
+      editOtherPackage !== (event.package && !standardPackages.includes(event.package) ? event.package : "") ||
+      editOtherPerformer !== (event.performers?.find((performer) => !performerOptions.includes(performer)) || "");
+
+    if (hasUnsavedChanges) {
+      setShowDiscardConfirm(true);
+      return;
+    }
+
+    onClose();
+  };
 
   /*
     "OTHERS" HELPERS
@@ -145,8 +173,18 @@ function EditEvent({ event, onClose, onUpdateEvent }) {
       return;
     }
 
+    if (!form.type) {
+      setErrorMessage("Please select the event type.");
+      return;
+    }
+
     if (isOtherType && !editOtherType.trim()) {
       setErrorMessage("Please enter the event type.");
+      return;
+    }
+
+    if (!form.package) {
+      setErrorMessage("Please select a package.");
       return;
     }
 
@@ -165,7 +203,17 @@ function EditEvent({ event, onClose, onUpdateEvent }) {
       return;
     }
 
-    const today = new Date().toISOString().split("T")[0];
+    if (!form.date) {
+      setErrorMessage("Please select the event date.");
+      return;
+    }
+
+    if (!form.time) {
+      setErrorMessage("Please select the event time.");
+      return;
+    }
+
+    const today = dayjs().format("YYYY-MM-DD");
 
     if (form.date < today) {
       setErrorMessage("Event date cannot be in the past.");
@@ -279,11 +327,12 @@ function EditEvent({ event, onClose, onUpdateEvent }) {
         onUpdateEvent(response.data);
       }
 
-      setSuccessMessage("The event has been updated successfully.");
+      onSuccess?.(`The event for ${response.data.client} was updated.`);
+      onClose?.();
     } catch (error) {
       console.error("Failed to update event:", error);
 
-      setErrorMessage(error.message || "Failed to update event.");
+      setErrorMessage(getApiErrorMessage(error, "Failed to update the event."));
     } finally {
       setIsSaving(false);
     }
@@ -291,7 +340,7 @@ function EditEvent({ event, onClose, onUpdateEvent }) {
 
   return (
     <>
-      <div className="edit-event-overlay" onClick={onClose}>
+      <div className="edit-event-overlay" onClick={handleClose}>
         <div className="edit-event-modal" onClick={(e) => e.stopPropagation()}>
           {/* HEADER */}
           <div className="edit-event-header">
@@ -310,7 +359,7 @@ function EditEvent({ event, onClose, onUpdateEvent }) {
             <button
               type="button"
               className="edit-event-close"
-              onClick={onClose}
+              onClick={handleClose}
               disabled={isSaving}
               aria-label="Close edit event"
             >
@@ -583,6 +632,7 @@ function EditEvent({ event, onClose, onUpdateEvent }) {
                     name="date"
                     value={form.date}
                     onChange={handleChange}
+                    min={dayjs().format("YYYY-MM-DD")}
                     required
                   />
                 </div>
@@ -694,7 +744,7 @@ function EditEvent({ event, onClose, onUpdateEvent }) {
             <button
               type="button"
               className="edit-cancel-button"
-              onClick={onClose}
+              onClick={handleClose}
               disabled={isSaving}
             >
               <FaTimes />
@@ -723,25 +773,6 @@ function EditEvent({ event, onClose, onUpdateEvent }) {
         </div>
       </div>
 
-      {/* SUCCESS MESSAGE */}
-      {successMessage && (
-        <ConfirmModal
-          title="Event Updated Successfully"
-          message={successMessage}
-          type="success"
-          confirmText="OK"
-          cancelText=""
-          onConfirm={() => {
-            setSuccessMessage("");
-            onClose();
-          }}
-          onCancel={() => {
-            setSuccessMessage("");
-            onClose();
-          }}
-        />
-      )}
-
       {/* ERROR MESSAGE */}
       {errorMessage && (
         <ConfirmModal
@@ -752,6 +783,20 @@ function EditEvent({ event, onClose, onUpdateEvent }) {
           cancelText=""
           onConfirm={() => setErrorMessage("")}
           onCancel={() => setErrorMessage("")}
+        />
+      )}
+
+      {showDiscardConfirm && (
+        <ConfirmModal
+          title="Discard your changes?"
+          message="Your unsaved booking updates will be lost."
+          confirmText="Discard Changes"
+          cancelText="Keep Editing"
+          onConfirm={() => {
+            setShowDiscardConfirm(false);
+            onClose();
+          }}
+          onCancel={() => setShowDiscardConfirm(false)}
         />
       )}
     </>

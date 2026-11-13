@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import Layout from "../components/layout/Layout";
 import {
@@ -19,6 +19,9 @@ import axios from "axios";
 import EditEvent from "../components/events/EditEvent";
 import ConfirmModal from "../components/common/ConfirmModal";
 import PageHeader from "../components/common/PageHeader";
+import Toast from "../components/common/Toast";
+import { getApiErrorMessage } from "../utils/apiErrors";
+import DataLoadError from "../components/common/DataLoadError";
 
 const formatEventTime = (time) => {
   if (!time) return "";
@@ -42,6 +45,18 @@ const formatPeso = (amount) =>
 const getPaymentClass = (status) =>
   (status || "Unpaid").toLowerCase().replace(/\s+/g, "-");
 
+const UPCOMING_EVENTS_PER_PAGE = 3;
+
+const getPageNumbers = (totalPages, currentPage) => {
+  const visibleCount = Math.min(totalPages, 5);
+  const startPage = Math.max(
+    1,
+    Math.min(currentPage - 1, totalPages - visibleCount + 1)
+  );
+
+  return Array.from({ length: visibleCount }, (_, index) => startPage + index);
+};
+
 // Short "starts in" text for events happening today
 const getTimeUntil = (date, time) => {
   if (!date || !time) return "";
@@ -62,6 +77,8 @@ const getTimeUntil = (date, time) => {
 function Dashboard({
   events,
   isLoadingEvents,
+  eventsLoadError,
+  onRetryLoad,
   onAddEvent,
   onUpdateEvent,
   onDeleteEvent,
@@ -70,8 +87,10 @@ function Dashboard({
   const [showAddEvent, setShowAddEvent] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState(null);
   const [deleteSuccessMessage, setDeleteSuccessMessage] = useState("");
-  const [addSuccessMessage, setAddSuccessMessage] = useState("");
+  const [toastMessage, setToastMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [upcomingPage, setUpcomingPage] = useState(1);
+  const [isAddButtonObscured, setIsAddButtonObscured] = useState(false);
 
   const today = dayjs().format("YYYY-MM-DD");
 
@@ -92,6 +111,33 @@ function Dashboard({
 
       return a.time.localeCompare(b.time);
     });
+
+  const upcomingPageCount = Math.ceil(
+    upcomingEvents.length / UPCOMING_EVENTS_PER_PAGE
+  );
+
+  useEffect(() => {
+    const pagination = document.querySelector(".upcoming-pagination");
+    setIsAddButtonObscured(false);
+
+    if (!pagination || typeof IntersectionObserver === "undefined") return undefined;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsAddButtonObscured(entry.isIntersecting),
+      { rootMargin: "-70% 0px 0px 0px" }
+    );
+
+    observer.observe(pagination);
+    return () => observer.disconnect();
+  }, [upcomingPageCount]);
+  const safeUpcomingPage = Math.min(
+    upcomingPage,
+    Math.max(upcomingPageCount, 1)
+  );
+  const visibleUpcomingEvents = upcomingEvents.slice(
+    (safeUpcomingPage - 1) * UPCOMING_EVENTS_PER_PAGE,
+    safeUpcomingPage * UPCOMING_EVENTS_PER_PAGE
+  );
 
   // The next upcoming event
   const nextEvent = upcomingEvents.length > 0 ? upcomingEvents[0] : null;
@@ -120,13 +166,17 @@ function Dashboard({
     } catch (error) {
       console.error("Failed to delete event:", error);
 
-      setErrorMessage("Failed to delete the event. Please try again.");
+      setErrorMessage(getApiErrorMessage(error, "Failed to delete the event."));
     }
   };
 
   const handleEdit = (event) => {
     setEditingEvent(event);
   };
+
+  const eventPendingDeletion = events.find(
+    (event) => event._id === deletingEventId
+  );
 
   /*
     DETAILED CARD
@@ -417,18 +467,40 @@ function Dashboard({
         }
       />
 
+      {!isLoadingEvents && <DataLoadError message={eventsLoadError} onRetry={onRetryLoad} />}
+
       {isLoadingEvents ? (
-        <div className="dashboard-loading">
-          <div className="dashboard-loading-spinner"></div>
-
-          <h3>Loading your schedule...</h3>
-
-          <p>Getting your events.</p>
+        <div className="dashboard-skeleton" aria-label="Loading your schedule" role="status" aria-busy="true">
+          <span className="sr-only">Loading your schedule…</span>
+          <div className="dashboard-skeleton-stats">
+            {Array.from({ length: 4 }, (_, index) => <div className="skeleton-block skeleton-stat" key={index} />)}
+          </div>
+          <div className="dashboard-skeleton-featured">
+            {Array.from({ length: 2 }, (_, index) => <div className="skeleton-block skeleton-featured" key={index} />)}
+          </div>
+          <div className="skeleton-block skeleton-upcoming-title" />
+          <div className="dashboard-skeleton-upcoming">
+            {Array.from({ length: 3 }, (_, index) => <div className="skeleton-block skeleton-upcoming-card" key={index} />)}
+          </div>
         </div>
       ) : (
         <>
           {/* SUMMARY CARDS */}
-          <div className="cards">
+          <section className="cards dashboard-statistics" aria-label="Schedule statistics">
+            <div className="card">
+              <div className="card-top">
+                <div className="card-icon blue">
+                  <FaCalendarCheck />
+                </div>
+                <span className="card-label">ALL TIME</span>
+              </div>
+              <div className="card-content">
+                <h2>{events.length}</h2>
+                <p>Total Events</p>
+                <small className="card-hint">Across your schedule</small>
+              </div>
+            </div>
+
             <div className="card">
               <div className="card-top">
                 <div className="card-icon blue">
@@ -476,10 +548,12 @@ function Dashboard({
                 <small className="card-hint">Different people booked</small>
               </div>
             </div>
-          </div>
 
-          {/* TODAY */}
-          <section className="next-event-section today-section">
+          </section>
+
+          <div className="dashboard-event-overview">
+            {/* TODAY */}
+            <section className="next-event-section today-section">
             <div className="section-title-row">
               <div>
                 <h2>Today's Schedule</h2>
@@ -516,10 +590,10 @@ function Dashboard({
                 )}
               </div>
             )}
-          </section>
+            </section>
 
-          {/* NEXT EVENT */}
-          <section className="next-event-section">
+            {/* NEXT EVENT */}
+            <section className="next-event-section">
             <div className="section-title-row">
               <div>
                 <h2>Next Event</h2>
@@ -547,7 +621,8 @@ function Dashboard({
                 </div>
               </div>
             )}
-          </section>
+            </section>
+          </div>
 
           {/* UPCOMING */}
           <section className="events upcoming-events-section">
@@ -555,11 +630,11 @@ function Dashboard({
               <div>
                 <h2>Upcoming Events</h2>
 
-                <p>
-                  {upcomingEvents.length} upcoming event
-                  {upcomingEvents.length !== 1 ? "s" : ""}, earliest first.
-                </p>
+                <p>Coming up next, sorted by date and time.</p>
               </div>
+              <span className="section-count">
+                {upcomingEvents.length} event{upcomingEvents.length !== 1 ? "s" : ""}
+              </span>
             </div>
 
             {upcomingEvents.length === 0 ? (
@@ -578,7 +653,54 @@ function Dashboard({
                 </button>
               </div>
             ) : (
-              upcomingEvents.map(renderEventCard)
+              <>
+                <div className="upcoming-event-grid">
+                  {visibleUpcomingEvents.map(renderEventCard)}
+                </div>
+
+                {upcomingPageCount > 1 && (
+                  <nav className="upcoming-pagination" aria-label="Upcoming event pages">
+                    <span className="upcoming-pagination-summary">
+                      Showing {(safeUpcomingPage - 1) * UPCOMING_EVENTS_PER_PAGE + 1}
+                      –{Math.min(safeUpcomingPage * UPCOMING_EVENTS_PER_PAGE, upcomingEvents.length)}
+                      {" of "}{upcomingEvents.length}
+                    </span>
+
+                    <div className="upcoming-pagination-controls">
+                      <button
+                        type="button"
+                        aria-label="Previous page"
+                        onClick={() => setUpcomingPage(safeUpcomingPage - 1)}
+                        disabled={safeUpcomingPage === 1}
+                      >
+                        Previous
+                      </button>
+
+                      {getPageNumbers(upcomingPageCount, safeUpcomingPage).map((page) => (
+                        <button
+                          type="button"
+                          className="pagination-page-button"
+                          key={page}
+                          aria-label={`Page ${page}`}
+                          aria-current={safeUpcomingPage === page ? "page" : undefined}
+                          onClick={() => setUpcomingPage(page)}
+                        >
+                          {page}
+                        </button>
+                      ))}
+
+                      <button
+                        type="button"
+                        aria-label="Next page"
+                        onClick={() => setUpcomingPage(safeUpcomingPage + 1)}
+                        disabled={safeUpcomingPage === upcomingPageCount}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </nav>
+                )}
+              </>
             )}
           </section>
         </>
@@ -591,7 +713,7 @@ function Dashboard({
           onAddEvent={(newEvent) => {
             onAddEvent(newEvent);
 
-            setAddSuccessMessage(
+            setToastMessage(
               `The event for ${newEvent.client} has been added successfully.`
             );
           }}
@@ -604,13 +726,28 @@ function Dashboard({
           event={editingEvent}
           onClose={() => setEditingEvent(null)}
           onUpdateEvent={onUpdateEvent}
+          onSuccess={setToastMessage}
         />
       )}
 
+      <button
+        type="button"
+        className={`floating-add-event ${isAddButtonObscured ? "is-obscured" : ""}`}
+        onClick={() => setShowAddEvent(true)}
+        aria-label="Add event"
+        title="Add event"
+      >
+        <FaPlus aria-hidden="true" />
+        <span>Add Event</span>
+      </button>
+
+      <Toast message={toastMessage} onClose={() => setToastMessage("")} />
+
       {deletingEventId && (
         <ConfirmModal
-          title="Delete Event"
-          message="Are you sure you want to delete this event? This action cannot be undone."
+          title="Delete this booking?"
+          message={`${eventPendingDeletion?.client || "This booking"} · ${eventPendingDeletion?.type || "Event"} · ${formatEventDate(eventPendingDeletion?.date)} at ${formatEventTime(eventPendingDeletion?.time)}. Deleting it cannot be undone.`}
+          confirmText="Delete Booking"
           onConfirm={() => handleDelete(deletingEventId)}
           onCancel={() => setDeletingEventId(null)}
         />
@@ -625,18 +762,6 @@ function Dashboard({
           cancelText=""
           onConfirm={() => setDeleteSuccessMessage("")}
           onCancel={() => setDeleteSuccessMessage("")}
-        />
-      )}
-
-      {addSuccessMessage && (
-        <ConfirmModal
-          title="Event Added Successfully"
-          message={addSuccessMessage}
-          type="success"
-          confirmText="OK"
-          cancelText=""
-          onConfirm={() => setAddSuccessMessage("")}
-          onCancel={() => setAddSuccessMessage("")}
         />
       )}
 

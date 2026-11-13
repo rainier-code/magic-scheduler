@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Layout from "../components/layout/Layout";
 import PageHeader from "../components/common/PageHeader";
 import ConfirmModal from "../components/common/ConfirmModal";
+import DataLoadError from "../components/common/DataLoadError";
 import {
   getCoordinates,
   getCurrentLocation,
@@ -10,14 +11,13 @@ import {
 
 import {
   subscribeToPushNotifications,
-  unsubscribeFromPushNotifications
+  unsubscribeFromPushNotifications,
 } from "../utils/pushNotifications";
 import {
   FaCog,
   FaUser,
   FaMapMarkerAlt,
   FaBell,
-  FaSave,
   FaPlus,
   FaEdit,
   FaTrash,
@@ -31,7 +31,20 @@ import {
 
 const defaultPerformers = ["Mark"];
 
-function Settings() {
+function readSavedSettings() {
+  try {
+    const savedSettings = localStorage.getItem("magicSchedulerSettings");
+    const parsedSettings = savedSettings ? JSON.parse(savedSettings) : {};
+    if (!parsedSettings || typeof parsedSettings !== "object" || Array.isArray(parsedSettings)) {
+      return {};
+    }
+    return parsedSettings;
+  } catch {
+    return {};
+  }
+}
+
+function Settings({ eventsLoadError = "", onRetryLoad }) {
   const [pushPermission, setPushPermission] = useState(() => {
       if (!("Notification" in window)) {
         return "unsupported";
@@ -43,28 +56,59 @@ function Settings() {
     const [isSubscribing, setIsSubscribing] = useState(false);
     
   const [settings, setSettings] = useState(() => {
-    const savedSettings = localStorage.getItem("magicSchedulerSettings");
-
-    if (savedSettings) {
-      const parsedSettings = JSON.parse(savedSettings);
-
-      return {
-        name: parsedSettings.name || "Mark",
-        defaultLocation: parsedSettings.defaultLocation || "",
-        defaultCoordinates: parsedSettings.defaultCoordinates || null,
-        notifications: parsedSettings.notifications ?? true,
-        performers: parsedSettings.performers || defaultPerformers,
-      };
-    }
-
+    const parsedSettings = readSavedSettings();
     return {
-      name: "Mark",
-      defaultLocation: "",
-      defaultCoordinates: null,
-      notifications: true,
-      performers: defaultPerformers,
+      name: parsedSettings.name || "Mark",
+      defaultLocation: parsedSettings.defaultLocation || "",
+      defaultCoordinates: parsedSettings.defaultCoordinates || null,
+      notifications: parsedSettings.notifications ?? true,
+      performers: Array.isArray(parsedSettings.performers) && parsedSettings.performers.length
+        ? parsedSettings.performers.filter((performer) => typeof performer === "string")
+        : defaultPerformers,
     };
   });
+
+  const [saveStatus, setSaveStatus] = useState("");
+  const previousSettings = useRef(JSON.stringify(settings));
+
+  useEffect(() => {
+    const currentSettings = JSON.stringify(settings);
+
+    // Always save settings locally.
+    try {
+      localStorage.setItem(
+        "magicSchedulerSettings",
+        currentSettings
+      );
+
+      // Don't show a toast if the settings haven't changed.
+      if (currentSettings === previousSettings.current) {
+        return;
+      }
+
+      previousSettings.current = currentSettings;
+
+      setSaveStatus("saved");
+
+      const timeout = setTimeout(() => {
+        setSaveStatus("");
+      }, 2500);
+
+      return () => clearTimeout(timeout);
+
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+
+      previousSettings.current = currentSettings;
+      setSaveStatus("error");
+
+      const timeout = setTimeout(() => {
+        setSaveStatus("");
+      }, 2500);
+
+      return () => clearTimeout(timeout);
+    }
+  }, [settings]);
 
   // Location verification state: idle | loading | verified | error
   const [locationStatus, setLocationStatus] = useState(() =>
@@ -295,55 +339,8 @@ function Settings() {
 
   /* ---------------- SAVE ---------------- */
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-
-    let settingsToSave = settings;
-
-    // If a location was typed but never verified, verify it now
-    // so distance calculations never have to guess later.
-    if (settings.defaultLocation.trim() && !settings.defaultCoordinates) {
-      setLocationStatus("loading");
-      setLocationMessage("Checking location...");
-
-      try {
-        const { latitude, longitude, displayName } = await getCoordinates(
-          settings.defaultLocation
-        );
-
-        settingsToSave = {
-          ...settings,
-          defaultCoordinates: { latitude, longitude },
-        };
-
-        setSettings(settingsToSave);
-        setLocationStatus("verified");
-        setLocationMessage(displayName);
-      } catch (error) {
-        setLocationStatus("error");
-        setLocationMessage(error.message);
-
-        setModal({
-          type: "error",
-          title: "Location Not Found",
-          message:
-            "We couldn't find your default location, so settings weren't saved. Try a more specific address or use your current location.",
-        });
-
-        return;
-      }
-    }
-
-    localStorage.setItem(
-      "magicSchedulerSettings",
-      JSON.stringify(settingsToSave)
-    );
-
-    setModal({
-      type: "success",
-      title: "Settings Saved",
-      message: "Your scheduler settings have been saved successfully.",
-    });
   };
 
   const closeModal = () => {
@@ -359,6 +356,28 @@ function Settings() {
         title="Settings"
         description="Manage your scheduler preferences and event options."
       />
+
+      <DataLoadError message={eventsLoadError} onRetry={onRetryLoad} />
+
+      {saveStatus && (
+        <div
+          className={`settings-toast ${saveStatus}`}
+          role="status"
+          aria-live="polite"
+        >
+          {saveStatus === "saved" ? (
+            <>
+              <FaCheckCircle />
+              <span>Changes saved successfully</span>
+            </>
+          ) : (
+            <>
+              <FaExclamationCircle />
+              <span>Unable to save settings</span>
+            </>
+          )}
+        </div>
+      )}
 
       <section className="settings-section">
         <form className="settings-form" onSubmit={handleSubmit}>
@@ -485,8 +504,8 @@ function Settings() {
               {locationStatus === "idle" &&
                 settings.defaultLocation.trim() && (
                   <p className="settings-location-hint">
-                    Not verified yet. It will be checked automatically when you
-                    save.
+                    Location is saved automatically. Click Verify to check it and
+                    save its coordinates for distance calculations.
                   </p>
                 )}
             </div>
@@ -611,7 +630,7 @@ function Settings() {
 
                 <div>
                   <h2>Notifications</h2>
-                  <p>Turn your scheduler notifications on or off.</p>
+                  <p>Choose whether this device receives event reminders.</p>
                 </div>
 
                 <span
@@ -641,8 +660,10 @@ function Settings() {
                   </strong>
                   <small>
                     {settings.notifications
-                      ? "Notifications are enabled on this device."
-                      : "Notifications are currently turned off."}
+                      ? pushPermission === "granted"
+                        ? "Browser permission is granted. Event reminders are sent one day before an event."
+                        : "Enabled in the app, but browser permission is not granted yet."
+                      : "Reminders are paused on this device."}
                   </small>
                 </span>
               </label>
@@ -661,14 +682,6 @@ function Settings() {
               )}
             </div>
 
-
-          {/* SAVE */}
-          <div className="settings-save-wrapper">
-            <button className="settings-save" type="submit" disabled={isLocating}>
-              <FaSave />
-              Save Settings
-            </button>
-          </div>
         </form>
       </section>
 

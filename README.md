@@ -642,6 +642,14 @@ History
 
 ## Data Validation
 
+### Security and Reliability
+
+The API validates event fields on the server, recalculates balances, rejects invalid record IDs, limits JSON request bodies, and does not return database error details to the browser. Browser cross-origin requests are restricted to configured client origins. In production, configure `CLIENT_ORIGINS` on the server with a comma-separated list of exact frontend origins, including `https://` (for example, `https://scheduler.example.com`). Local development allows the Vite development and preview origins.
+
+Use HTTPS in production and keep MongoDB credentials, VAPID keys, cron secrets, and test secrets in server environment variables. The `.env` files are excluded from Git.
+
+The current app does not have user accounts or API authentication. CORS only limits browser access and is not an access-control system; deploy the API behind a trusted network or add authentication before exposing private client and booking data to the public internet.
+
 The application includes validation for important event information.
 
 Examples include:

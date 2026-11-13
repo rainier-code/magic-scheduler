@@ -1,12 +1,13 @@
 const PushSubscription = require("../models/PushSubscription");
+const { isValidEndpoint } = require("../utils/validatePushSubscription");
 
 const unsubscribeFromPushNotifications = async (req, res) => {
   try {
     const { endpoint } = req.body;
 
-    if (!endpoint) {
+    if (!isValidEndpoint(endpoint)) {
       return res.status(400).json({
-        message: "Subscription endpoint is required.",
+        message: "A valid HTTPS subscription endpoint is required.",
       });
     }
 

@@ -11,6 +11,9 @@ import EditEvent from "../components/events/EditEvent";
 import axios from "axios";
 import ConfirmModal from "../components/common/ConfirmModal";
 import PageHeader from "../components/common/PageHeader";
+import Toast from "../components/common/Toast";
+import { getApiErrorMessage } from "../utils/apiErrors";
+import DataLoadError from "../components/common/DataLoadError";
 
 const formatEventTime = (time) => {
   if (!time) return "";
@@ -22,19 +25,26 @@ function Calendar({
   events,
   onUpdateEvent,
   onDeleteEvent,
+  eventsLoadError,
+  onRetryLoad,
 }) {
   const [currentMonth, setCurrentMonth] = useState(dayjs());
+  const [selectedDate, setSelectedDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [editingEvent, setEditingEvent] = useState(null);
   const [deletingEventId, setDeletingEventId] = useState(null);
   const [deleteSuccessMessage, setDeleteSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [toastMessage, setToastMessage] = useState("");
 
   const today = dayjs().format("YYYY-MM-DD");
 
   const startOfMonth = currentMonth.startOf("month");
   const daysInMonth = currentMonth.daysInMonth();
   const firstDay = startOfMonth.day();
+  const monthEvents = events.filter(
+    (event) => dayjs(event.date).format("YYYY-MM") === currentMonth.format("YYYY-MM")
+  );
 
   const days = [];
 
@@ -48,16 +58,26 @@ function Calendar({
     days.push(i);
   }
 
+  while (days.length % 7 !== 0) {
+    days.push(null);
+  }
+
   const previousMonth = () => {
-    setCurrentMonth(currentMonth.subtract(1, "month"));
+    const month = currentMonth.subtract(1, "month");
+    setCurrentMonth(month);
+    setSelectedDate(month.startOf("month").format("YYYY-MM-DD"));
   };
 
   const nextMonth = () => {
-    setCurrentMonth(currentMonth.add(1, "month"));
+    const month = currentMonth.add(1, "month");
+    setCurrentMonth(month);
+    setSelectedDate(month.startOf("month").format("YYYY-MM-DD"));
   };
 
   const goToToday = () => {
-    setCurrentMonth(dayjs());
+    const todayDate = dayjs();
+    setCurrentMonth(todayDate);
+    setSelectedDate(todayDate.format("YYYY-MM-DD"));
   };
 
   const getEventsForDay = (day) => {
@@ -75,6 +95,10 @@ function Calendar({
         return a.time.localeCompare(b.time);
       });
   };
+
+  const selectedDayEvents = events
+    .filter((event) => event.date === selectedDate)
+    .sort((a, b) => a.time.localeCompare(b.time));
 
   const handleDelete = async (eventId) => {
     try {
@@ -101,15 +125,17 @@ function Calendar({
           error
         );
 
-        setErrorMessage(
-          "Failed to delete the event. Please try again."
-        );
+        setErrorMessage(getApiErrorMessage(error, "Failed to delete the event."));
       }
   };
 
   const isPastEvent =
     selectedEvent &&
     selectedEvent.date < today;
+
+  const eventPendingDeletion = events.find(
+    (event) => event._id === deletingEventId
+  );
 
   return (
     <Layout>
@@ -121,7 +147,8 @@ function Calendar({
           title="Calendar"
           description="View and manage your event schedule."
           action={
-            <div className="calendar-navigation">
+            <div className="calendar-navigation" role="group" aria-label="Calendar navigation">
+              <div className="calendar-month-controls">
               <button
                 type="button"
                 className="calendar-nav-button"
@@ -131,15 +158,7 @@ function Calendar({
                 <FaChevronLeft />
               </button>
 
-              <button
-                type="button"
-                className="today-button"
-                onClick={goToToday}
-              >
-                Today
-              </button>
-
-              <div className="calendar-current-month">
+              <div className="calendar-current-month" aria-live="polite">
                 {currentMonth.format("MMMM YYYY")}
               </div>
 
@@ -151,12 +170,35 @@ function Calendar({
               >
                 <FaChevronRight />
               </button>
+              </div>
+
+              <button
+                type="button"
+                className="today-button"
+                onClick={goToToday}
+                disabled={currentMonth.isSame(dayjs(), "month") && selectedDate === today}
+              >
+                Today
+              </button>
             </div>
           }
         />
 
+        <DataLoadError message={eventsLoadError} onRetry={onRetryLoad} />
+
+        <div className="calendar-overview">
+          <p>
+            <strong>{monthEvents.length}</strong> event{monthEvents.length !== 1 ? "s" : ""} this month
+          </p>
+          <div className="calendar-legend" aria-label="Event status colors">
+            <span className="upcoming">Upcoming</span>
+            <span className="today">Today</span>
+            <span className="past">Past</span>
+          </div>
+        </div>
+
         {/* Calendar */}
-        <div className="calendar">
+        <div className="calendar" role="region" aria-label={`${currentMonth.format("MMMM YYYY")} calendar`}>
 
           <div className="calendar-weekdays">
             <div>Sun</div>
@@ -186,12 +228,31 @@ function Calendar({
                       .isSame(dayjs(), "day")
                       ? "today"
                       : ""
+                  } ${
+                    day && currentMonth.date(day).format("YYYY-MM-DD") === selectedDate
+                      ? "selected"
+                      : ""
                   }`}
                   key={index}
                 >
                   {day && (
                     <>
-                      <span>{day}</span>
+                      <div className="calendar-day-heading">
+                        <button
+                          type="button"
+                          className="calendar-day-select"
+                          aria-pressed={currentMonth.date(day).format("YYYY-MM-DD") === selectedDate}
+                          aria-label={`${currentMonth.date(day).format("MMMM D")}, ${dayEvents.length} event${dayEvents.length !== 1 ? "s" : ""}`}
+                          onClick={() => setSelectedDate(currentMonth.date(day).format("YYYY-MM-DD"))}
+                        >
+                          {day}
+                        </button>
+                        {dayEvents.length > 0 && (
+                          <span className="calendar-day-count" aria-hidden="true">
+                            {dayEvents.length}
+                          </span>
+                        )}
+                      </div>
 
                       <div className="calendar-events">
                         {dayEvents.map((event) => (
@@ -213,8 +274,7 @@ function Calendar({
                             </strong>
 
                             <small>
-                              {event.type} ·{" "}
-                              {formatEventTime(event.time)}
+                              {formatEventTime(event.time)} · {event.type}
                             </small>
                           </button>
                         ))}
@@ -226,6 +286,36 @@ function Calendar({
             })}
           </div>
         </div>
+
+        <section className="calendar-agenda" aria-live="polite">
+          <div className="calendar-agenda-heading">
+            <div>
+              <h2>{dayjs(selectedDate).format("MMMM D, YYYY")}</h2>
+              <p>{selectedDayEvents.length} event{selectedDayEvents.length !== 1 ? "s" : ""} scheduled</p>
+            </div>
+          </div>
+          {selectedDayEvents.length ? (
+            <div className="calendar-agenda-list">
+              {selectedDayEvents.map((event) => (
+                <button
+                  type="button"
+                  className={`calendar-agenda-item ${event.date < today ? "past" : event.date === today ? "today" : "upcoming"}`}
+                  key={event._id}
+                  onClick={() => setSelectedEvent(event)}
+                >
+                  <span className="calendar-agenda-time">{formatEventTime(event.time)}</span>
+                  <span className="calendar-agenda-copy">
+                    <strong>{event.client}</strong>
+                    <small>{event.type} · {event.location}</small>
+                  </span>
+                  <FaChevronRight />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="calendar-agenda-empty">No events scheduled for this day.</p>
+          )}
+        </section>
 
         {/* Event Details Modal */}
         {selectedEvent && (
@@ -474,6 +564,7 @@ function Calendar({
               setEditingEvent(null)
             }
             onUpdateEvent={onUpdateEvent}
+            onSuccess={setToastMessage}
           />
         )}
 
@@ -481,8 +572,9 @@ function Calendar({
 
       {deletingEventId && (
         <ConfirmModal
-          title="Delete Event"
-          message="Are you sure you want to delete this event? This action cannot be undone."
+          title="Delete this booking?"
+          message={`${eventPendingDeletion?.client || "This booking"} · ${eventPendingDeletion?.type || "Event"} · ${dayjs(eventPendingDeletion?.date).format("MMMM D, YYYY")} at ${formatEventTime(eventPendingDeletion?.time)}. Deleting it cannot be undone.`}
+          confirmText="Delete Booking"
           onConfirm={() =>
             handleDelete(deletingEventId)
           }
@@ -515,6 +607,7 @@ function Calendar({
           onCancel={() => setErrorMessage("")}
         />
       )}
+      <Toast message={toastMessage} onClose={() => setToastMessage("")} />
     </Layout>
   );
 }

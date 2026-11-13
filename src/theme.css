@@ -1,0 +1,572 @@
+/* Magic Scheduler visual system
+   Loaded after index.css so shared colors and components stay consistent. */
+
+/* 1. Palette, surfaces, and type scale */
+:root {
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --primary-dark: #3730a3;
+  --primary-400: #818cf8;
+  --primary-300: #a5b4fc;
+  --primary-200: #c7d2fe;
+  --primary-100: #e0e7ff;
+  --primary-light: #eef2ff;
+  --primary-faint: #f7f8ff;
+  --primary-gradient: linear-gradient(115deg, #5b54eb 0%, #4942cf 100%);
+  --primary-gradient-hover: linear-gradient(115deg, #4f46e5 0%, #3d36b7 100%);
+
+  --gray-50: #f8fafc;
+  --gray-100: #f1f5f9;
+  --gray-200: #e2e8f0;
+  --gray-300: #cbd5e1;
+  --gray-400: #94a3b8;
+  --gray-500: #64748b;
+  --gray-600: #475569;
+  --gray-700: #334155;
+  --gray-800: #1e293b;
+  --gray-900: #111827;
+
+  --success: #15966a;
+  --success-hover: #0f7b56;
+  --success-dark: #126749;
+  --success-light: #eaf8f1;
+  --success-border: #c8ebd9;
+  --danger: #dc4c64;
+  --danger-hover: #be354d;
+  --danger-light: #fff0f2;
+  --danger-faint: #fff7f8;
+  --warning: #bd7712;
+  --warning-light: #fff6e6;
+  --purple: #7656d6;
+  --purple-light: #f2efff;
+
+  --page-bg: #f4f6fb;
+  --card-bg: #ffffff;
+  --sidebar-bg: #11172f;
+  --sidebar-hover: #202849;
+  --sidebar-text: #a7b0c8;
+  --text-primary: #182033;
+  --text-secondary: #667085;
+  --text-muted: #8993a8;
+  --border: #e4e8f1;
+  --border-strong: #cfd6e4;
+  --overlay: rgba(18, 25, 48, 0.58);
+
+  --radius-xs: 7px;
+  --radius-sm: 10px;
+  --radius-md: 13px;
+  --radius-lg: 17px;
+  --radius-xl: 21px;
+  --shadow-sm: 0 3px 12px rgba(31, 41, 71, 0.055);
+  --shadow-md: 0 10px 26px rgba(31, 41, 71, 0.09);
+  --shadow-lg: 0 24px 60px rgba(23, 31, 56, 0.2);
+  --ring-primary: 0 0 0 4px rgba(79, 70, 229, 0.14);
+
+  --fs-2xs: 11px;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-base: 14px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 17px;
+  --fs-2xl: 19px;
+  --fs-3xl: 21px;
+  --fs-4xl: 23px;
+  --fs-5xl: 26px;
+  --fs-6xl: 30px;
+
+  --control-height: 44px;
+  --card-padding: 24px;
+}
+
+/* 2. Page frame, navigation, and page headings */
+body {
+  background: linear-gradient(140deg, #f7f8fc 0%, var(--page-bg) 60%, #f1f4fa 100%) fixed;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.content {
+  padding: 32px clamp(20px, 3vw, 42px);
+}
+
+.sidebar {
+  background: linear-gradient(180deg, #151c39 0%, #10162c 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 8px 0 28px rgba(18, 25, 48, 0.12);
+}
+
+.sidebar .menu li a {
+  min-height: 48px;
+  border-radius: 12px;
+  transition: background 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.sidebar .menu li a:hover {
+  background: rgba(255, 255, 255, 0.075);
+  transform: translateX(3px);
+}
+
+.sidebar .menu li a.active {
+  background: linear-gradient(110deg, #5b54eb 0%, #4942cf 100%);
+  box-shadow: 0 8px 18px rgba(55, 48, 163, 0.28);
+}
+
+.sidebar .menu li a.active::before {
+  background: #b7b5ff;
+  border-radius: 0 5px 5px 0;
+}
+
+.sidebar-logo-text span {
+  color: #aeb8d2;
+}
+
+.sidebar-logo-mark,
+.mobile-logo .app-brand-icon {
+  border-color: rgba(165, 180, 252, 0.24);
+  box-shadow: 0 5px 16px rgba(35, 42, 91, 0.22);
+}
+
+.mobile-navbar {
+  background: rgba(255, 255, 255, 0.94);
+  border-bottom-color: var(--border);
+  box-shadow: 0 5px 18px rgba(31, 41, 71, 0.06);
+  backdrop-filter: blur(16px);
+}
+
+.page-header {
+  margin-bottom: 30px;
+}
+
+.page-header-content {
+  gap: 16px;
+}
+
+.page-header-icon {
+  color: var(--primary);
+  background: linear-gradient(145deg, #f1f2ff 0%, #e9edff 100%);
+  border-color: #dfe3ff;
+  border-radius: 16px;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.8);
+}
+
+.page-header-text h1 {
+  letter-spacing: -0.035em;
+}
+
+.page-header-text p {
+  color: var(--text-secondary);
+}
+
+/* 3. Shared card and section surfaces */
+.card,
+.next-event-card,
+.event-card,
+.client-card,
+.history-card,
+.settings-card,
+.calendar,
+.calendar-agenda,
+.client-event-preview,
+.client-record-payment {
+  background-color: var(--card-bg);
+  border-color: var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.card,
+.next-event-card,
+.event-card,
+.client-card,
+.history-card {
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.card:hover,
+.next-event-card:hover,
+.event-card:hover,
+.client-card:hover,
+.history-card:hover {
+  border-color: #d2d6fa;
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.section-title-row h2,
+.section-heading h2 {
+  letter-spacing: -0.025em;
+}
+
+.section-title-row p,
+.section-heading p {
+  color: var(--text-secondary);
+}
+
+.card-label,
+.next-event-label,
+.client-event-preview-label {
+  letter-spacing: 0.075em;
+}
+
+.next-event-icon,
+.card-icon.blue,
+.page-header-icon {
+  color: var(--primary);
+  background-color: var(--primary-light);
+}
+
+.next-event-detail,
+.event-payment,
+.calendar-payment-section,
+.client-profile-summary > div,
+.client-card-booking-counts span,
+.client-event-preview,
+.client-record-payment {
+  border-color: var(--border);
+  border-radius: var(--radius-md);
+}
+
+.next-event-detail,
+.event-payment,
+.calendar-payment-section,
+.client-profile-summary > div,
+.client-event-preview,
+.client-record-payment {
+  background: #f8f9fd;
+}
+
+.history-summary {
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+}
+
+.history-card-payment {
+  border-radius: var(--radius-md);
+}
+
+.add-event-modal,
+.edit-event-modal,
+.event-modal,
+.client-modal,
+.confirm-modal {
+  background-color: var(--card-bg);
+  border-color: var(--border);
+  border-radius: 22px;
+  box-shadow: var(--shadow-lg);
+}
+
+/* 4. Shared controls, form fields, and feedback */
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  border-color: var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+input:not([type="checkbox"]):not([type="radio"]):focus,
+select:focus,
+textarea:focus {
+  border-color: #9691f4;
+  box-shadow: var(--ring-primary);
+  outline: none;
+}
+
+.add-event-primary-button,
+.add-save-button,
+.edit-save-button,
+.settings-add-button,
+.client-modal-edit-button,
+.confirm-success-button {
+  min-height: 42px;
+  color: #fff;
+  background: var(--primary-gradient);
+  border: 1px solid #4e47d8;
+  border-radius: 11px;
+  box-shadow: 0 5px 12px rgba(79, 70, 229, 0.16);
+  font-weight: 700;
+  transition: background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.add-event-primary-button:hover,
+.add-save-button:hover:not(:disabled),
+.edit-save-button:hover:not(:disabled),
+.settings-add-button:hover:not(:disabled),
+.client-modal-edit-button:hover,
+.confirm-success-button:hover {
+  background: var(--primary-gradient-hover);
+  box-shadow: 0 8px 18px rgba(79, 70, 229, 0.24);
+  transform: translateY(-1px);
+}
+
+.add-cancel-button,
+.edit-cancel-button,
+.calendar-nav-button,
+.today-button,
+.clear-client-search-button,
+.clear-history-search-button {
+  color: var(--gray-700);
+  background: #fff;
+  border-color: var(--border);
+  border-radius: 10px;
+}
+
+.add-cancel-button:hover,
+.edit-cancel-button:hover,
+.calendar-nav-button:hover:not(:disabled),
+.today-button:hover:not(:disabled) {
+  color: var(--primary);
+  background: var(--primary-light);
+  border-color: var(--primary-200);
+}
+
+.delete-event-button,
+.delete-calendar-event-button,
+.client-modal-delete-button,
+.confirm-delete-button {
+  border-radius: 10px;
+}
+
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: 3px solid rgba(79, 70, 229, 0.32);
+  outline-offset: 3px;
+}
+
+.add-field label,
+.edit-field label,
+.settings-field > label {
+  color: #34405b;
+  font-weight: 650;
+}
+
+.settings-toggle,
+.settings-notification-toggle {
+  border-radius: var(--radius-md);
+}
+
+/* 5. Calendar, pagination, and notifications */
+.calendar {
+  padding: 16px;
+}
+
+.calendar-weekdays > div {
+  color: #66708a;
+  font-weight: 700;
+}
+
+.calendar-day {
+  border-color: #edf0f6;
+  background: #fff;
+}
+
+.calendar-day:hover,
+.calendar-day.selected:not(.today) {
+  background: #f3f4ff;
+}
+
+.calendar-day.today {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.calendar-day.today .calendar-day-select {
+  color: #fff;
+  background: var(--primary);
+}
+
+.calendar-event {
+  border-radius: 8px;
+}
+
+.calendar-agenda {
+  padding: 18px;
+}
+
+.clients-pagination-controls button,
+.upcoming-pagination-controls button,
+.history-pagination-controls button,
+.pagination-page-button {
+  border-radius: 10px;
+}
+
+.clients-pagination-controls button[aria-current="page"],
+.upcoming-pagination-controls button[aria-current="page"],
+.history-pagination-controls button[aria-current="page"],
+.pagination-page-button[aria-current="page"] {
+  color: #fff;
+  background: var(--primary-gradient);
+  border-color: #5149d8;
+  box-shadow: 0 4px 10px rgba(79, 70, 229, 0.2);
+}
+
+.notification-dropdown {
+  border-color: var(--border);
+  border-radius: 18px;
+  box-shadow: 0 22px 58px rgba(18, 25, 48, 0.2);
+}
+
+.notification-item.unread {
+  background: #f7f8ff;
+}
+
+.notification-bell,
+.mobile-menu-button {
+  border-radius: 12px;
+}
+
+.notification-bell {
+  box-shadow: 0 3px 10px rgba(79, 70, 229, 0.13);
+}
+
+.floating-add-event {
+  background: var(--primary-gradient);
+  box-shadow: 0 10px 28px rgba(79, 70, 229, 0.28);
+}
+
+.floating-add-event:hover {
+  background: var(--primary-gradient-hover);
+  box-shadow: 0 14px 32px rgba(79, 70, 229, 0.34);
+}
+
+.data-load-error {
+  color: var(--danger-hover);
+  background: var(--danger-faint);
+  border-color: var(--danger-light);
+}
+
+.data-load-error button {
+  color: var(--danger-hover);
+  border-color: var(--danger-light);
+}
+
+/* 6. Mobile refinements */
+@media (max-width: 800px) {
+  .content {
+    padding: 24px 20px;
+  }
+}
+
+@media (max-width: 600px) {
+  .content {
+    padding: 18px 15px 112px;
+  }
+
+  .page-header {
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+
+  .page-header-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+  }
+
+  .page-header-text h1 {
+    font-size: 25px;
+  }
+
+  .card,
+  .settings-card,
+  .calendar-agenda {
+    border-radius: 15px;
+  }
+}
+
+@media (max-width: 500px) {
+  .sidebar,
+  .sidebar.mobile-sidebar-open {
+    background: #fff;
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -6px 22px rgba(31, 41, 71, 0.1);
+  }
+
+  .sidebar .menu li a.active {
+    color: var(--primary);
+    background: var(--primary-light);
+    box-shadow: none;
+  }
+
+  .sidebar .menu li a.active svg {
+    color: var(--primary);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* 7. Consistent feedback for secondary actions and clickable items */
+button:not(:disabled) {
+  transition: background-color 160ms ease, border-color 160ms ease,
+    box-shadow 160ms ease, color 160ms ease, filter 160ms ease,
+    transform 160ms ease;
+}
+
+button:not(:disabled):hover {
+  filter: brightness(0.97);
+}
+
+.add-event-close:hover,
+.edit-event-close:hover,
+.event-modal-close:hover,
+.client-modal-close:hover,
+.history-modal-close:hover,
+.notification-close:hover,
+.mobile-sidebar-close:hover {
+  color: var(--danger-hover);
+  background: var(--danger-light);
+  transform: none;
+}
+
+.settings-option {
+  transition: background-color 160ms ease, border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.settings-option:hover {
+  background: #fff;
+  border-color: var(--primary-200);
+  box-shadow: 0 3px 10px rgba(79, 70, 229, 0.07);
+}
+
+.settings-toggle:not(:has(input:disabled)):hover {
+  background: var(--primary-light);
+  border-color: var(--primary-200);
+}
+
+.calendar-agenda-item {
+  transition: background-color 160ms ease, box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.calendar-agenda-item:hover {
+  background: #f3f4ff;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.08);
+  transform: translateY(-1px);
+}
+
+.calendar-agenda-item:active {
+  transform: scale(0.99);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button:not(:disabled),
+  .settings-option,
+  .calendar-agenda-item {
+    transition: none;
+  }
+
+  .calendar-agenda-item:hover,
+  .calendar-agenda-item:active {
+    transform: none;
+  }
+}

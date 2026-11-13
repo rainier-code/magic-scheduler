@@ -1,14 +1,15 @@
 const PushSubscription = require("../models/PushSubscription");
+const { validatePushSubscription } = require("../utils/validatePushSubscription");
 
 const subscribeToPushNotifications = async (req, res) => {
   try {
-    const { endpoint, keys } = req.body;
-
-    if (!endpoint || !keys?.p256dh || !keys?.auth) {
+    if (!validatePushSubscription(req.body)) {
       return res.status(400).json({
         message: "Invalid push subscription.",
       });
     }
+
+    const { endpoint, keys } = req.body;
 
     const existingSubscription = await PushSubscription.findOne({
       endpoint,
@@ -20,12 +21,10 @@ const subscribeToPushNotifications = async (req, res) => {
       });
     }
 
-    await PushSubscription.create({
-      endpoint,
-      keys: {
-        p256dh: keys.p256dh,
-        auth: keys.auth,
-      },
+    await PushSubscription.updateOne({ endpoint }, {
+      $set: { keys: { p256dh: keys.p256dh, auth: keys.auth } },
+    }, {
+      upsert: true,
     });
 
     return res.status(201).json({

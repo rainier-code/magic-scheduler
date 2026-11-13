@@ -5,6 +5,9 @@ import Layout from "../components/layout/Layout";
 import EditEvent from "../components/events/EditEvent";
 import ConfirmModal from "../components/common/ConfirmModal";
 import PageHeader from "../components/common/PageHeader";
+import Toast from "../components/common/Toast";
+import { getApiErrorMessage } from "../utils/apiErrors";
+import DataLoadError from "../components/common/DataLoadError";
 
 import {
   FaUsers,
@@ -21,10 +24,80 @@ import {
   FaMoneyBillWave,
 } from "react-icons/fa";
 
+const getEventBalance = (event) =>
+  Number(
+    event.balance ??
+      Math.max(
+        (Number(event.totalAmount) || 0) - (Number(event.downpayment) || 0),
+        0
+      )
+  ) || 0;
+
+const formatPeso = (amount) =>
+  `₱${Number(amount || 0).toLocaleString("en-PH", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+const CLIENTS_PER_PAGE = 6;
+const BOOKINGS_PER_PAGE = 3;
+
+const getVisiblePageNumbers = (totalPages, currentPage) => {
+  const pageCount = Math.min(totalPages, 5);
+  const firstPage = Math.max(
+    1,
+    Math.min(currentPage - 2, totalPages - pageCount + 1)
+  );
+
+  return Array.from({ length: pageCount }, (_, index) => firstPage + index);
+};
+
+function PageControls({ currentPage, totalPages, onPageChange, label }) {
+  if (totalPages <= 1) return null;
+
+  return (
+    <nav className="clients-pagination" aria-label={label}>
+      <span className="clients-pagination-summary">
+        Page {currentPage} of {totalPages}
+      </span>
+      <div className="clients-pagination-controls">
+        <button
+          type="button"
+          aria-label="Previous page"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+        >Previous</button>
+        <div className="clients-pagination-numbers">
+          {getVisiblePageNumbers(totalPages, currentPage).map((page) => (
+            <button
+              type="button"
+              className="pagination-page-button"
+              key={page}
+              aria-label={`Page ${page}`}
+              aria-current={page === currentPage ? "page" : undefined}
+              onClick={() => onPageChange(page)}
+            >
+              {page}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          aria-label="Next page"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+        >Next</button>
+      </div>
+    </nav>
+  );
+}
+
 function Clients({
   events,
   onUpdateEvent,
   onDeleteEvent,
+  eventsLoadError,
+  onRetryLoad,
 }) {
   const [selectedClient, setSelectedClient] = useState(null);
   const [editingEvent, setEditingEvent] = useState(null);
@@ -32,48 +105,41 @@ function Clients({
   const [deletingEventId, setDeletingEventId] = useState(null);
   const [deleteSuccessMessage, setDeleteSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [toastMessage, setToastMessage] = useState("");
+  const [clientsPage, setClientsPage] = useState(1);
+  const [upcomingBookingsPage, setUpcomingBookingsPage] = useState(1);
+  const [completedBookingsPage, setCompletedBookingsPage] = useState(1);
 
   const today = dayjs().format("YYYY-MM-DD");
 
-  // Only today's and future events appear in the main Clients list.
-  const activeEvents = events.filter(
-    (event) => event.date >= today
-  );
+  // Keep every client in the directory, including clients with only completed bookings.
+  const clientsMap = new Map();
 
-  // Group active events by client.
-  const clientsMap = {};
-
-  activeEvents.forEach((event) => {
-    if (!clientsMap[event.client]) {
-      clientsMap[event.client] = [];
-    }
-
-    clientsMap[event.client].push(event);
+  events.forEach((event) => {
+    const clientEvents = clientsMap.get(event.client) || [];
+    clientEvents.push(event);
+    clientsMap.set(event.client, clientEvents);
   });
 
-  const clients = Object.entries(clientsMap).sort(
+  const clients = [...clientsMap.entries()].sort(
     ([, eventsA], [, eventsB]) => {
-      const nearestA = [...eventsA].sort((a, b) => {
-        if (a.date !== b.date) {
-          return a.date.localeCompare(b.date);
-        }
+      const upcomingA = eventsA
+        .filter((event) => event.date >= today)
+        .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+      const upcomingB = eventsB
+        .filter((event) => event.date >= today)
+        .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
 
-        return a.time.localeCompare(b.time);
-      })[0];
-
-      const nearestB = [...eventsB].sort((a, b) => {
-        if (a.date !== b.date) {
-          return a.date.localeCompare(b.date);
-        }
-
-        return a.time.localeCompare(b.time);
-      })[0];
-
-      if (nearestA.date !== nearestB.date) {
-        return nearestA.date.localeCompare(nearestB.date);
+      if (upcomingA.length && !upcomingB.length) return -1;
+      if (!upcomingA.length && upcomingB.length) return 1;
+      if (upcomingA.length && upcomingB.length) {
+        return upcomingA[0].date.localeCompare(upcomingB[0].date) ||
+          upcomingA[0].time.localeCompare(upcomingB[0].time);
       }
 
-      return nearestA.time.localeCompare(nearestB.time);
+      const latestA = [...eventsA].sort((a, b) => b.date.localeCompare(a.date))[0];
+      const latestB = [...eventsB].sort((a, b) => b.date.localeCompare(a.date))[0];
+      return latestB.date.localeCompare(latestA.date);
     }
   );
 
@@ -82,6 +148,12 @@ function Clients({
     clientName
       .toLowerCase()
       .includes(searchTerm.toLowerCase())
+  );
+  const clientsPageCount = Math.ceil(filteredClients.length / CLIENTS_PER_PAGE);
+  const safeClientsPage = Math.min(clientsPage, Math.max(clientsPageCount, 1));
+  const visibleClients = filteredClients.slice(
+    (safeClientsPage - 1) * CLIENTS_PER_PAGE,
+    safeClientsPage * CLIENTS_PER_PAGE
   );
 
   // Get all events belonging to a specific client.
@@ -119,7 +191,24 @@ function Clients({
       upcomingEvents,
       completedEvents,
     });
+    setUpcomingBookingsPage(1);
+    setCompletedBookingsPage(1);
   };
+
+  const upcomingBookingPageCount = selectedClient
+    ? Math.ceil(selectedClient.upcomingEvents.length / BOOKINGS_PER_PAGE)
+    : 0;
+  const safeUpcomingBookingsPage = Math.min(
+    upcomingBookingsPage,
+    Math.max(upcomingBookingPageCount, 1)
+  );
+  const completedBookingPageCount = selectedClient
+    ? Math.ceil(selectedClient.completedEvents.length / BOOKINGS_PER_PAGE)
+    : 0;
+  const safeCompletedBookingsPage = Math.min(
+    completedBookingsPage,
+    Math.max(completedBookingPageCount, 1)
+  );
 
   const handleDelete = async (eventId) => {
     try {
@@ -146,9 +235,7 @@ function Clients({
         error
       );
 
-      setErrorMessage(
-        "Failed to delete the event. Please try again."
-      );
+      setErrorMessage(getApiErrorMessage(error, "Failed to delete the event."));
     }
   };
 
@@ -167,21 +254,34 @@ function Clients({
     }
   };
 
+  const selectedClientEvents = selectedClient
+    ? [...selectedClient.upcomingEvents, ...selectedClient.completedEvents]
+    : [];
+  const selectedClientOutstandingBalance = selectedClientEvents.reduce(
+    (total, event) => total + getEventBalance(event),
+    0
+  );
+  const eventPendingDeletion = events.find(
+    (event) => event._id === deletingEventId
+  );
+
   return (
     <Layout>
-    <PageHeader
-      icon={<FaUsers />}
-      title="Clients"
-      description="View and manage your current and upcoming client events."
-    />
+      <PageHeader
+        icon={<FaUsers />}
+        title="Clients"
+        description="Client profiles and their complete booking history."
+      />
+
+      <DataLoadError message={eventsLoadError} onRetry={onRetryLoad} />
 
       <section className="clients-section">
         <div className="clients-section-header">
           <div>
-            <h2>Active Clients</h2>
+            <h2>All Clients</h2>
 
             <p>
-              Clients with today's or upcoming events.
+              Upcoming bookings and completed records in one place.
             </p>
           </div>
 
@@ -197,11 +297,12 @@ function Clients({
 
           <input
             type="text"
-            placeholder="Search clients..."
+            placeholder="Search all clients..."
             value={searchTerm}
-            onChange={(e) =>
-              setSearchTerm(e.target.value)
-            }
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setClientsPage(1);
+            }}
             aria-label="Search clients"
           />
 
@@ -209,7 +310,10 @@ function Clients({
             <button
               type="button"
               className="clients-search-clear"
-              onClick={() => setSearchTerm("")}
+              onClick={() => {
+                setSearchTerm("");
+                setClientsPage(1);
+              }}
               aria-label="Clear client search"
             >
               <FaTimes />
@@ -221,11 +325,10 @@ function Clients({
           <div className="empty-clients">
             <FaUsers />
 
-            <h3>No active clients</h3>
+            <h3>No clients yet</h3>
 
             <p>
-              Clients with today's or upcoming events
-              will appear here.
+              Add a booking to create a client profile and booking history.
             </p>
           </div>
         ) : filteredClients.length === 0 ? (
@@ -235,20 +338,23 @@ function Clients({
             <h3>No clients found</h3>
 
             <p>
-              No active client matches "{searchTerm}".
+              No client matches "{searchTerm}".
             </p>
 
             <button
               type="button"
               className="clear-client-search-button"
-              onClick={() => setSearchTerm("")}
+              onClick={() => {
+                setSearchTerm("");
+                setClientsPage(1);
+              }}
             >
               Clear Search
             </button>
           </div>
         ) : (
           <div className="client-grid">
-            {filteredClients.map(
+            {visibleClients.map(
               ([clientName, clientEvents]) => {
                 const sortedClientEvents = [
                   ...clientEvents,
@@ -259,6 +365,18 @@ function Clients({
 
                   return a.time.localeCompare(b.time);
                 });
+                const upcomingClientEvents = sortedClientEvents.filter(
+                  (event) => event.date >= today
+                );
+                const completedClientEvents = sortedClientEvents.filter(
+                  (event) => event.date < today
+                );
+                const highlightedEvent = upcomingClientEvents[0] ||
+                  completedClientEvents[completedClientEvents.length - 1];
+                const outstandingBalance = clientEvents.reduce(
+                  (total, event) => total + getEventBalance(event),
+                  0
+                );
 
                 return (
                   <div
@@ -287,91 +405,59 @@ function Clients({
                       <h3>{clientName}</h3>
 
                       <span>
-                        {clientEvents.length} event
-                        {clientEvents.length !== 1 ? "s" : ""}
+                        {clientEvents.length} booking{clientEvents.length !== 1 ? "s" : ""}
                       </span>
                     </div>
 
                     <div
-                      className={`client-payment-badge ${
-                        clientEvents.every(
-                          (event) =>
-                            event.paymentStatus === "Fully Paid"
-                        )
-                          ? "fully-paid"
-                          : clientEvents.some(
-                              (event) =>
-                                event.paymentStatus === "Downpayment Paid" ||
-                                event.paymentStatus === "Fully Paid"
-                            )
-                          ? "downpayment-paid"
-                          : "unpaid"
-                      }`}
+                      className={`client-payment-badge ${outstandingBalance > 0 ? "unpaid" : "fully-paid"}`}
                     >
                       <span className="client-payment-dot"></span>
-
-                      {clientEvents.every(
-                        (event) =>
-                          event.paymentStatus === "Fully Paid"
-                      )
-                        ? "Fully Paid"
-                        : clientEvents.some(
-                            (event) =>
-                              event.paymentStatus === "Downpayment Paid" ||
-                              event.paymentStatus === "Fully Paid"
-                          )
-                        ? "Downpayment Paid"
-                        : "Unpaid"}
+                      {outstandingBalance > 0
+                        ? `${formatPeso(outstandingBalance)} due`
+                        : "Paid in full"}
                     </div>
                   </div>
 
-                    <div className="client-events">
-                      {sortedClientEvents.map((event) => (
-                        <div
-                          className="client-event"
-                          key={event._id}
-                        >
-                          <strong>
-                            {event.type}
-                          </strong>
-
-                          <p>
-                            <FaCalendarAlt />
-
-                            {dayjs(event.date).format(
-                              "MMMM D, YYYY"
-                            )}
-                          </p>
-
-                          <p>
-                            <FaClock />
-
-                            {event.time}
-                          </p>
-
-                          <p>
-                            <FaMapMarkerAlt />
-
-                            {event.location}
-                          </p>
-
-                          <p>
-                            <FaBoxOpen />
-
-                            {event.package}
-                          </p>
-                        </div>
-                      ))}
+                    <div className="client-card-booking-counts">
+                      <span><FaCalendarAlt /> {upcomingClientEvents.length} upcoming</span>
+                      <span><FaHistory /> {completedClientEvents.length} completed</span>
                     </div>
 
+                    {highlightedEvent && (
+                      <div className="client-event client-event-preview">
+                        <span className="client-event-preview-label">
+                          {upcomingClientEvents.length ? "Next booking" : "Most recent booking"}
+                        </span>
+                        <strong>{highlightedEvent.type}</strong>
+                        <p>
+                          <FaCalendarAlt />
+                          {dayjs(highlightedEvent.date).format("MMM D, YYYY")} · {highlightedEvent.time}
+                        </p>
+                        <p>
+                          <FaMapMarkerAlt />
+                          <span>{highlightedEvent.location}</span>
+                        </p>
+                      </div>
+                    )}
+
                     <div className="client-card-view">
-                      Click to view full details
+                      Open profile and booking history
                     </div>
                   </div>
                 );
               }
             )}
           </div>
+        )}
+
+        {clients.length > 0 && (
+          <PageControls
+            currentPage={safeClientsPage}
+            totalPages={clientsPageCount}
+            onPageChange={setClientsPage}
+            label="Client directory pages"
+          />
         )}
       </section>
 
@@ -401,22 +487,26 @@ function Clients({
 
               <div>
                 <h2>{selectedClient.client}</h2>
+                <p>Complete booking history and payment overview</p>
+              </div>
+            </div>
 
-                <p>
-                  {selectedClient.upcomingEvents.length} upcoming
-                  {" "}
-                  event
-                  {selectedClient.upcomingEvents.length !== 1
-                    ? "s"
-                    : ""}
-                  {" · "}
-                  {selectedClient.completedEvents.length} completed
-                  {" "}
-                  event
-                  {selectedClient.completedEvents.length !== 1
-                    ? "s"
-                    : ""}
-                </p>
+            <div className="client-profile-summary">
+              <div>
+                <strong>{selectedClientEvents.length}</strong>
+                <span>Total bookings</span>
+              </div>
+              <div>
+                <strong>{selectedClient.upcomingEvents.length}</strong>
+                <span>Upcoming</span>
+              </div>
+              <div>
+                <strong>{selectedClient.completedEvents.length}</strong>
+                <span>Completed</span>
+              </div>
+              <div className={selectedClientOutstandingBalance > 0 ? "due" : "paid"}>
+                <strong>{formatPeso(selectedClientOutstandingBalance)}</strong>
+                <span>Balance due</span>
               </div>
             </div>
 
@@ -432,7 +522,12 @@ function Clients({
                   No upcoming events for this client.
                 </div>
               ) : (
-                selectedClient.upcomingEvents.map((event) => (
+                selectedClient.upcomingEvents
+                  .slice(
+                    (safeUpcomingBookingsPage - 1) * BOOKINGS_PER_PAGE,
+                    safeUpcomingBookingsPage * BOOKINGS_PER_PAGE
+                  )
+                  .map((event) => (
                   <div
                     className="client-history-card"
                     key={event._id}
@@ -599,8 +694,15 @@ function Clients({
                       </button>
                     </div>
                   </div>
-                ))
+                  ))
               )}
+
+              <PageControls
+                currentPage={safeUpcomingBookingsPage}
+                totalPages={upcomingBookingPageCount}
+                onPageChange={setUpcomingBookingsPage}
+                label="Upcoming booking pages"
+              />
             </div>
 
             {/* Completed Events */}
@@ -615,7 +717,12 @@ function Clients({
                   No completed events for this client.
                 </div>
               ) : (
-                selectedClient.completedEvents.map((event) => (
+                selectedClient.completedEvents
+                  .slice(
+                    (safeCompletedBookingsPage - 1) * BOOKINGS_PER_PAGE,
+                    safeCompletedBookingsPage * BOOKINGS_PER_PAGE
+                  )
+                  .map((event) => (
                   <div
                     className="client-history-card client-completed-card"
                     key={event._id}
@@ -686,9 +793,24 @@ function Clients({
                       <FaHistory />
                       Completed Event
                     </div>
+
+                    <div className="client-record-payment">
+                      <span><FaMoneyBillWave /> Balance due</span>
+                      <strong>{formatPeso(getEventBalance(event))}</strong>
+                      <span className={`client-record-payment-status ${getEventBalance(event) > 0 ? "due" : "paid"}`}>
+                        {event.paymentStatus || (getEventBalance(event) > 0 ? "Outstanding" : "Paid in full")}
+                      </span>
+                    </div>
                   </div>
-                ))
+                  ))
               )}
+
+              <PageControls
+                currentPage={safeCompletedBookingsPage}
+                totalPages={completedBookingPageCount}
+                onPageChange={setCompletedBookingsPage}
+                label="Completed booking pages"
+              />
             </div>
           </div>
         </div>
@@ -701,13 +823,17 @@ function Clients({
             setEditingEvent(null)
           }
           onUpdateEvent={onUpdateEvent}
+          onSuccess={setToastMessage}
         />
       )}
 
       {deletingEventId && (
         <ConfirmModal
-          title="Delete Event"
-          message="Are you sure you want to delete this event? This action cannot be undone."
+          title="Delete this booking?"
+          message={eventPendingDeletion
+            ? `${eventPendingDeletion.client} · ${eventPendingDeletion.type} · ${dayjs(eventPendingDeletion.date).format("MMMM D, YYYY")} at ${eventPendingDeletion.time}. Deleting it cannot be undone.`
+            : "This booking will be permanently deleted."}
+          confirmText="Delete Booking"
           onConfirm={() =>
             handleDelete(deletingEventId)
           }
@@ -740,6 +866,7 @@ function Clients({
           onCancel={() => setErrorMessage("")}
         />
       )}
+      <Toast message={toastMessage} onClose={() => setToastMessage("")} />
     </Layout>
   );
 }
