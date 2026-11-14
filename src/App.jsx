@@ -10,20 +10,53 @@ import Settings from "./pages/Settings";
 import { NotificationProvider } from "./context/NotificationContext.jsx";
 import { getApiErrorMessage } from "./utils/apiErrors";
 
+const delay = (ms) =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
 function App() {
   const [events, setEvents] = useState([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
   const [eventsLoadError, setEventsLoadError] = useState("");
 
+
   const fetchEvents = useCallback(async () => {
+    const maxAttempts = 3;
+    let lastError;
+
     setIsLoadingEvents(true);
     setEventsLoadError("");
+
     try {
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/events`, { timeout: 15000 });
-      setEvents(Array.isArray(response.data) ? response.data : []);
-    } catch (error) {
-      console.error("Failed to load events:", error?.code || error?.name || "RequestError");
-      setEventsLoadError(getApiErrorMessage(error, "Could not load your event records."));
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const response = await axios.get(
+            `${import.meta.env.VITE_API_URL}/api/events`,
+            { timeout: 15000 }
+          );
+
+          setEvents(Array.isArray(response.data) ? response.data : []);
+          setEventsLoadError("");
+          return;
+        } catch (error) {
+          lastError = error;
+
+          console.error(
+            `Failed to load events (attempt ${attempt}/${maxAttempts}):`,
+            error?.code || error?.name || "RequestError"
+          );
+
+          if (attempt < maxAttempts) {
+            await delay(2000);
+          }
+        }
+      }
+
+      setEventsLoadError(
+        getApiErrorMessage(
+          lastError,
+          "Could not load your event records."
+        )
+      );
     } finally {
       setIsLoadingEvents(false);
     }
